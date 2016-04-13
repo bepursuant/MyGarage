@@ -51,28 +51,33 @@ OptionStruct OpenGarage::options[] = {
 };
     
 void OpenGarage::begin() {
-  digitalWrite(PIN_RESET, HIGH);
+  DEBUG_PRINT("Configuring GPIO...");
+  digitalWrite(PIN_RESET, HIGH);  // reset button
   pinMode(PIN_RESET, OUTPUT);
   
-  digitalWrite(PIN_BUZZER, LOW);
+  digitalWrite(PIN_BUZZER, LOW);  // speaker/buzzer
   pinMode(PIN_BUZZER, OUTPUT);
   
-  digitalWrite(PIN_RELAY, LOW);
+  digitalWrite(PIN_RELAY, LOW);   // relay
   pinMode(PIN_RELAY, OUTPUT);
 
-  digitalWrite(PIN_LED, LOW);
+  digitalWrite(PIN_LED, LOW);     // status LED
   pinMode(PIN_LED, OUTPUT);
   
-  digitalWrite(PIN_TRIG, HIGH);
+  digitalWrite(PIN_TRIG, HIGH);   // trigger
   pinMode(PIN_TRIG, OUTPUT);
   
-  pinMode(PIN_ECHO, INPUT);
+  pinMode(PIN_ECHO, INPUT);       // echo
   pinMode(PIN_BUTTON, INPUT_PULLUP);
+  DEBUG_PRINTLN("ok!");
   
   state = OG_STATE_INITIAL;
   
+  DEBUG_PRINT("Mounting SPIFFS...");
   if(!SPIFFS.begin()) {
-    DEBUG_PRINTLN(F("failed to mount file system!"));
+    DEBUG_PRINTLN("failed!");
+  } else {
+    DEBUG_PRINTLN("ok!");
   }
   
   play_startup_tune();
@@ -81,9 +86,11 @@ void OpenGarage::begin() {
 void OpenGarage::options_setup() {
   int i;
   if(!SPIFFS.exists(config_fname)) { // if config file does not exist
+    DEBUG_PRINT("Saving default config to SPIFFS...");
     options_save(); // save default option values
+    DEBUG_PRINTLN("ok!");
     return;
-  } 
+  }
   options_load();
   
   if(options[OPTION_FWV].ival != OG_FWV)  {
@@ -97,20 +104,21 @@ void OpenGarage::options_setup() {
 }
 
 void OpenGarage::options_reset() {
-  DEBUG_PRINT(F("reset to factory default..."));
+  DEBUG_PRINT(F("Resetting options to factory default..."));
   if(!SPIFFS.remove(config_fname)) {
-    DEBUG_PRINTLN(F("failed to remove config file"));
+    DEBUG_PRINTLN(F("failed!"));
     return;
   }
-  DEBUG_PRINTLN(F("ok"));
+  DEBUG_PRINTLN(F("ok!"));
 }
 
 void OpenGarage::log_reset() {
+  DEBUG_PRINT(F("Resetting logs to factory default..."));
   if(!SPIFFS.remove(log_fname)) {
-    DEBUG_PRINTLN(F("failed to remove log file"));
+    DEBUG_PRINTLN(F("failed!"));
     return;
   }
-  DEBUG_PRINTLN(F("ok"));  
+  DEBUG_PRINTLN(F("ok!"));  
 }
 
 int OpenGarage::find_option(String name) {
@@ -123,12 +131,16 @@ int OpenGarage::find_option(String name) {
 }
 
 void OpenGarage::options_load() {
+  DEBUG_PRINT(F("Loading config file "));
+  DEBUG_PRINT(config_fname);
+  DEBUG_PRINT(F("..."));
+
   File file = SPIFFS.open(config_fname, "r");
-  DEBUG_PRINT(F("loading config file..."));
   if(!file) {
-    DEBUG_PRINTLN(F("failed"));
+    DEBUG_PRINTLN(F("failed!"));
     return;
   }
+
   while(file.available()) {
     String name = file.readStringUntil(':');
     String sval = file.readStringUntil('\n');
@@ -141,17 +153,21 @@ void OpenGarage::options_load() {
       options[idx].sval = sval;
     }
   }
-  DEBUG_PRINTLN(F("ok"));
+  DEBUG_PRINTLN(F("ok!"));
   file.close();
 }
 
 void OpenGarage::options_save() {
+  DEBUG_PRINT(F("Saving config file "));
+  DEBUG_PRINT(config_fname);
+  DEBUG_PRINT(F("..."));
+
   File file = SPIFFS.open(config_fname, "w");
-  DEBUG_PRINTLN(F("saving config file..."));  
   if(!file) {
-    DEBUG_PRINTLN(F("failed"));
+    DEBUG_PRINTLN(F("failed!"));
     return;
   }
+
   OptionStruct *o = options;
   for(byte i=0;i<NUM_OPTIONS;i++,o++) {
     file.print(o->name + ":");
@@ -160,10 +176,13 @@ void OpenGarage::options_save() {
     else
       file.println(o->sval);
   }
-  DEBUG_PRINTLN(F("ok"));  
+  DEBUG_PRINTLN(F("ok!"));  
   file.close();
 }
 
+// read the distance from an ir distance sensor
+// to determine the position of the door and
+// whether a car is present at the time
 ulong OpenGarage::read_distance_once() {
   digitalWrite(PIN_TRIG, LOW);
   delayMicroseconds(2);
@@ -181,7 +200,7 @@ ulong OpenGarage::read_distance_once() {
 uint OpenGarage::read_distance() {
   byte i;
   unsigned long _time = 0;
-  // do three readings in a roll to reduce noise
+  // average three readings to reduce noise
   byte K = 3;
   for(i=0;i<K;i++) {
     _time += read_distance_once();
@@ -210,15 +229,19 @@ bool OpenGarage::get_local_access_en() {
 }
 
 void OpenGarage::write_log(const LogStruct& data) {
+  DEBUG_PRINT(F("Saving log data..."));  
+
   File file;
   uint curr = 0;
-  DEBUG_PRINTLN(F("saving log data..."));  
+
   if(!SPIFFS.exists(log_fname)) {  // create log file
+
     file = SPIFFS.open(log_fname, "w");
     if(!file) {
-      DEBUG_PRINTLN(F("failed"));
+      DEBUG_PRINTLN(F("failed to create log file!"));
       return;
     }
+
     // fill log file
     uint next = curr+1;
     file.write((const byte*)&next, sizeof(next));
@@ -231,7 +254,7 @@ void OpenGarage::write_log(const LogStruct& data) {
   } else {
     file = SPIFFS.open(log_fname, "r+");
     if(!file) {
-      DEBUG_PRINTLN(F("failed"));
+      DEBUG_PRINTLN(F("failed to open log file!"));
       return;
     }
     file.readBytes((char*)&curr, sizeof(curr));
@@ -242,8 +265,10 @@ void OpenGarage::write_log(const LogStruct& data) {
     file.seek(sizeof(curr)+curr*sizeof(LogStruct), SeekSet);
     file.write((const byte*)&data, sizeof(LogStruct));
   }
-  DEBUG_PRINTLN(F("ok"));      
+
   file.close();
+
+  DEBUG_PRINTLN(F("ok!"));      
 }
 
 bool OpenGarage::read_log_start() {

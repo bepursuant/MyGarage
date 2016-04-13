@@ -20,21 +20,28 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-#if defined(SERIAL_DEBUG)
+
+//#define EN_BLYNK    //uncomment to enable blynk support
+
+// if we have blynk enabled and serial debugging, 
+// pass that command to the blink library
+#if defined(EN_BLYNK) && defined(SERIAL_DEBUG)
   #define BLYNK_DEBUG
   #define BLYNK_PRINT Serial
 #endif
 
 #include "OpenGarage.h"
 #include "espconnect.h"
-#include <BlynkSimpleEsp8266.h>
+
+#ifdef EN_BLYNK
+  #include <BlynkSimpleEsp8266.h>
+  BlynkWifi Blynk(_blynkTransport);
+  WidgetLED blynk_led(BLYNK_PIN_LED);
+  WidgetLCD blynk_lcd(BLYNK_PIN_LCD);
+#endif
 
 OpenGarage og;
 ESP8266WebServer *server = NULL;
-BlynkWifi Blynk(_blynkTransport);
-
-WidgetLED blynk_led(BLYNK_PIN_LED);
-WidgetLCD blynk_lcd(BLYNK_PIN_LCD);
 
 static String scanned_ssids;
 static byte read_cnt = 0;
@@ -138,7 +145,7 @@ String get_ap_ssid() {
   if(!ap_ssid.length()) {
     byte mac[6];
     WiFi.macAddress(mac);
-    ap_ssid = "OG_";
+    ap_ssid = "DIRECT-AP[OG]";
     for(byte i=3;i<6;i++) {
       ap_ssid += dec2hexchar((mac[i]>>4)&0x0F);
       ap_ssid += dec2hexchar(mac[i]&0x0F);
@@ -389,6 +396,27 @@ void on_ap_try_connect() {
   }
 }
 
+
+void on_get_status(){
+  String html = "";
+  html += F("{\"distance\":");
+  html += distance;
+  html += F(",\"status\":");
+  html += door_status;
+  html += F(",\"reads\":");
+  html += read_cnt;
+  html += F(",\"fwv\":");
+  html += og.options[OPTION_FWV].ival;
+  html += F(",\"name\":\"");
+  html += og.options[OPTION_NAME].sval;
+  html += F("\",\"mac\":\"");
+  html += get_mac();
+  html += F("\",\"chipId\":");
+  html += ESP.getChipId();
+  html += F("}");
+  server_send_html(html);
+}
+
 void do_setup()
 {
   DEBUG_BEGIN(115200);
@@ -403,7 +431,7 @@ void do_setup()
   curr_mode = og.get_mode();
   if(!server) {
     server = new ESP8266WebServer(og.options[OPTION_HTP].ival);
-    DEBUG_PRINT(F("server started @ "));
+    DEBUG_PRINT(F("Server started on port "));
     DEBUG_PRINTLN(og.options[OPTION_HTP].ival);
   }
   led_blink_ms = LED_FAST_BLINK;
@@ -514,72 +542,92 @@ void on_sta_upload() {
   delay(0);    
 }
 
+
+// check the status of the door based on the sensor(s)
 void check_status() {
-  static ulong checkstatus_timeout = 0;
-  if(curr_utc_time > checkstatus_timeout) {
-    og.set_led(HIGH);
-    distance = og.read_distance();
-    og.set_led(LOW);
-    read_cnt = (read_cnt+1)%100;
-    uint threshold = og.options[OPTION_DTH].ival;
-    door_status = (distance>threshold)?0:1;
-    if (og.options[OPTION_MNT].ival == OG_MNT_SIDE)    
-      door_status = 1-door_status;  // reverse logic for side mount
 
-    door_status_hist = (door_status_hist<<1) | door_status;
-    byte event = check_door_status_hist();
+  if(true /*sensorType == TYPE_DISTANCE*/){
 
-    // write log record
-    if(event == DOOR_STATUS_JUST_OPENED || event == DOOR_STATUS_JUST_CLOSED) {
-      LogStruct l;
-      l.tstamp = curr_utc_time;
-      l.status = door_status;
-      l.dist = distance;
-      og.write_log(l);
-    }
-    
-    if(curr_cloud_access_en && Blynk.connected()) {
-      Blynk.virtualWrite(BLYNK_PIN_RCNT, read_cnt);
-      Blynk.virtualWrite(BLYNK_PIN_DIST, distance);
-      (door_status) ? blynk_led.on() : blynk_led.off();
-      blynk_lcd.print(0, 0, get_ip());
-      String str = ":";
-      str += og.options[OPTION_HTP].ival;
-      str += " " + get_ap_ssid();
-      blynk_lcd.print(0, 1, str);
-      if(event == DOOR_STATUS_JUST_OPENED) {
-        Blynk.notify(og.options[OPTION_NAME].sval + " just OPENED!");
-      } else if(event == DOOR_STATUS_JUST_CLOSED) {
-        Blynk.notify(og.options[OPTION_NAME].sval + " just closed!");
+    static ulong checkstatus_timeout = 0;
+    if(curr_utc_time > checkstatus_timeout) {
+
+      og.set_led(HIGH);
+      distance = og.read_distance();
+      og.set_led(LOW);
+
+      read_cnt = (read_cnt+1)%100;
+      uint threshold = og.options[OPTION_DTH].ival;
+      door_status = (distance>threshold) ? 0 : 1;
+
+      if (og.options[OPTION_MNT].ival == OG_MNT_SIDE)    
+        door_status = 1-door_status;  // reverse logic for side mount
+
+      door_status_hist = (door_status_hist<<1) | door_status;
+      byte event = check_door_status_hist();
+
+      // write log record
+      if(event == DOOR_STATUS_JUST_OPENED || event == DOOR_STATUS_JUST_CLOSED) {
+        LogStruct l;
+        l.tstamp = curr_utc_time;
+        l.status = door_status;
+        l.dist = distance;
+        og.write_log(l);
       }
+      
+      #ifdef EN_BLYNK
+      if(curr_cloud_access_en && Blynk.connected()) {
+        Blynk.virtualWrite(BLYNK_PIN_RCNT, read_cnt);
+        Blynk.virtualWrite(BLYNK_PIN_DIST, distance);
+        (door_status) ? blynk_led.on() : blynk_led.off();
+        blynk_lcd.print(0, 0, get_ip());
+        String str = ":";
+        str += og.options[OPTION_HTP].ival;
+        str += " " + get_ap_ssid();
+        blynk_lcd.print(0, 1, str);
+        if(event == DOOR_STATUS_JUST_OPENED) {
+          Blynk.notify(og.options[OPTION_NAME].sval + " just OPENED!");
+        } else if(event == DOOR_STATUS_JUST_CLOSED) {
+          Blynk.notify(og.options[OPTION_NAME].sval + " just closed!");
+        }
+      }
+      #endif
+
+      checkstatus_timeout = curr_utc_time + og.options[OPTION_RIV].ival;
+    } else {
+
     }
-    checkstatus_timeout = curr_utc_time + og.options[OPTION_RIV].ival;
   }
 }
 
 void time_keeping() {
+  return;
   static bool configured = false;
   static ulong prev_millis = 0;
   static ulong time_keeping_timeout = 0;
 
   if(!configured) {
-    DEBUG_PRINTLN(F("set time server"));
+    DEBUG_PRINT(F("Set time server..."));
     configTime(0, 0, "pool.ntp.org", "time.nist.org", NULL);
     configured = true;
+    DEBUG_PRINTLN(F("ok!"));
   }
 
+
   if(!curr_utc_time || curr_utc_time > time_keeping_timeout) {
+    DEBUG_PRINT(F("Synchronising local time..."));
     ulong gt = time(nullptr);
     if(!gt) {
       // if we didn't get response, re-try after 2 seconds
       time_keeping_timeout = curr_utc_time + 2;
     } else {
       curr_utc_time = gt;
-      DEBUG_PRINT(F("network time: "));
-      DEBUG_PRINTLN(curr_utc_time);
+      DEBUG_PRINT(F("network time:"));
+      DEBUG_PRINT(curr_utc_time);
+      DEBUG_PRINT("...");
       // if we got a response, re-try after TIME_SYNC_TIMEOUT seconds
       time_keeping_timeout = curr_utc_time + TIME_SYNC_TIMEOUT;
       prev_millis = millis();
+      DEBUG_PRINTLN("ok!");
     }
   }
   while(millis() - prev_millis >= 1000) {
@@ -653,12 +701,18 @@ void do_loop() {
         server->on("/co", on_sta_change_options);
         server->on("/update", HTTP_GET, on_sta_update);
         server->on("/update", HTTP_POST, on_sta_upload_fin, on_sta_upload);
+
+        server->on("/status", HTTP_GET, on_get_status);
+
+
         server->begin();
       }
+      #ifdef EN_BLYNK
       if(curr_cloud_access_en) {
         Blynk.begin(og.options[OPTION_AUTH].sval.c_str());
         Blynk.connect();
       }
+      #endif
       og.state = OG_STATE_CONNECTED;
       led_blink_ms = 0;
       og.set_led(LOW);
@@ -677,8 +731,10 @@ void do_loop() {
   case OG_STATE_CONNECTED:
     if(curr_local_access_en)
       server->handleClient();
+    #ifdef EN_BLYNK
     if(curr_cloud_access_en)
       Blynk.run();
+    #endif
     break;
     
   case OG_STATE_RESTART:
@@ -710,6 +766,7 @@ void do_loop() {
     process_alarm();
 }
 
+#ifdef EN_BLYNK
 BLYNK_WRITE(V1)
 {
   if(!og.options[OPTION_ALM].ival) {
@@ -726,4 +783,4 @@ BLYNK_WRITE(V1)
     }  
   }
 }
-
+#endif
