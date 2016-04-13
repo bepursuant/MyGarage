@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <head>
   <title>OpenGarage Options</title>
   <meta name='viewport' content='width=device-width, initial-scale=1'>
@@ -34,31 +35,41 @@
       <tr><td><b>HTTP Port:</b></td><td><input type='text' size=5 maxlength=5 id='htp' value=1 data-mini='true'></td></tr>
       <tr><td><b>Device Key:</b></td><td><input type='password' size=24 maxlength=32 id='dkey' data-mini='true'></td></tr>
       <tr><td colspan=2><p id='msg'></p></td></tr>
+      <tr><td colspan=2><input type='checkbox' data-mini='true' id='cb_key'><label for='cb_key'>Change Device Key</label></td></tr>
+      <tr><td><b>New Key:</b></td><td><input type='password' size=24 maxlength=32 id='nkey' data-mini='true' disabled></td></tr>
+      <tr><td><b>Confirm:</b></td><td><input type='password' size=24 maxlength=32 id='ckey' data-mini='true' disabled></td></tr>  
       </table>
       <div data-role='controlgroup' data-type='horizontal'>
       <a href='#' data-role='button' data-inline='true' data-theme='a' id='btn_cancel'>Cancel</a>
       <a href='#' data-role='button' data-inline='true' data-theme='b' id='btn_submit'>Submit</a>      
       </div>
-      <table>
-      <tr><td colspan=2><input type='checkbox' data-mini='true' id='cb_key'><label for='cb_key'>Change Device Key</label></td></tr>
-      <tr><td><b>New Key:</b></td><td><input type='password' size=24 maxlength=32 id='nkey' data-mini='true' disabled></td></tr>
-      <tr><td><b>Confirm:</b></td><td><input type='password' size=24 maxlength=32 id='ckey' data-mini='true' disabled></td></tr>      
-      </table>
     </div>
     <div data-role='footer' data-theme='c'>
       <p>&nbsp; OpenGarage Firmware <label id='fwv'>-</label>&nbsp;<a href="update" target='_blank' data-role='button' data-inline=true data-mini=true>Update</a></p>
     </div> 
   </div>
   <script>
-    function clear_msg() {$('#msg').text('');}  
-    function show_msg(s) {$('#msg').text(s).css('color','red'); setTimeout(clear_msg, 2000);}
+    //#msg acts as a response container for events
+    function clear_msg() {
+      $('#msg').text('');
+    }  
+
+    function show_msg(s) {
+      $('#msg').text(s).css('color','red');
+      setTimeout(clear_msg, 2000);
+    }
+
+    // enable/disable the change key textboxes when the 'change key'
+    // checkbox is changed
     $('#cb_key').click(function(e){
       $('#nkey').textinput($(this).is(':checked')?'enable':'disable');
       $('#ckey').textinput($(this).is(':checked')?'enable':'disable');
     });
+
     $('#btn_cancel').click(function(e){
       e.preventDefault(); close();
     });
+    
     $('#btn_submit').click(function(e){
       e.preventDefault();
       if(confirm('Submit changes?')) {
@@ -90,6 +101,7 @@
         });
       }
     });
+
     $(document).ready(function() {
       $.getJSON('jo', function(jd) {
         $('#fwv').text('v'+(jd.fwv/100>>0)+'.'+(jd.fwv/10%10>>0)+'.'+(jd.fwv%10>>0));

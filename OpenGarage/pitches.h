@@ -1,7 +1,8 @@
-/*************************************************
- * Public Constants
- *************************************************/
-
+/*
+ *	Defines notes as constants which can be used to drive a small
+ *	speaker at a specified frequency. This makes coding a tune
+ *	significantly easier, and doesn't add to the binary size
+ */
 #define NOTE_B0  31
 #define NOTE_C1  33
 #define NOTE_CS1 35
@@ -91,5 +92,3 @@
 #define NOTE_CS8 4435
 #define NOTE_D8  4699
 #define NOTE_DS8 4978
-
-
