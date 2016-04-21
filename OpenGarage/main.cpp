@@ -430,9 +430,11 @@ void do_setup()
   curr_local_access_en = og.get_local_access_en();
   curr_mode = og.get_mode();
   if(!server) {
+    DEBUG_PRINT(F("Starting server on port "));
+    DEBUG_PRINT(og.options[OPTION_HTP].ival);
+    DEBUG_PRINT("...");
     server = new ESP8266WebServer(og.options[OPTION_HTP].ival);
-    DEBUG_PRINT(F("Server started on port "));
-    DEBUG_PRINTLN(og.options[OPTION_HTP].ival);
+    DEBUG_PRINTLN("ok!");
   }
   led_blink_ms = LED_FAST_BLINK;
 }
@@ -670,6 +672,7 @@ void do_loop() {
       server->on("/jt", on_ap_try_connect);
       server->begin();
       og.state = OG_STATE_CONNECTED;
+      DEBUG_PRINT("IP Address: ");
       DEBUG_PRINTLN(WiFi.softAPIP());
     } else {
       led_blink_ms = LED_SLOW_BLINK;

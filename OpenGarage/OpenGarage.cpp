@@ -51,6 +51,7 @@ OptionStruct OpenGarage::options[] = {
 };
     
 void OpenGarage::begin() {
+  DEBUG_PRINTLN("");
   DEBUG_PRINT("Configuring GPIO...");
   digitalWrite(PIN_RESET, HIGH);  // reset button
   pinMode(PIN_RESET, OUTPUT);
