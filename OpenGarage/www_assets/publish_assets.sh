@@ -1,3 +1,4 @@
+rm ../www_assets.h
 ./publish_assets views/ap_home.html html_ap_home
 ./publish_assets views/sta_home.html html_sta_home
 ./publish_assets views/sta_options.html html_sta_options

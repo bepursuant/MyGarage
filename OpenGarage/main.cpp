@@ -32,6 +32,7 @@
 
 #include "OpenGarage.h"
 #include "espconnect.h"
+#include <ArduinoJson.h>
 
 #ifdef EN_BLYNK
   #include <BlynkSimpleEsp8266.h>
@@ -63,15 +64,22 @@ void server_send_html(String html) {
   server->send(200, "text/html", html);
 }
 
+void server_send_json(String json){
+  server->send(200, "text/json", json);
+}
+
 void server_send_result(byte code, const char* item = NULL) {
-  String html = F("{\"result\":");
-  html += code;
-  if (!item) item = "";
-  html += F(",\"item\":\"");
-  html += item;
-  html += F("\"");
-  html += F("}");
-  server_send_html(html);
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject& root = jsonBuffer.createObject();
+
+  root["result"] = code;
+  if(item)
+    root["item"] = item;
+
+  String retJson;
+  root.printTo(retJson);
+
+  server_send_json(retJson);
 }
 
 bool get_value_by_key(const char* key, uint& val) {
@@ -90,34 +98,6 @@ bool get_value_by_key(const char* key, String& val) {
   } else {
     return false;
   }
-}
-
-void on_home()
-{
-  String html = "";
-  
-  if(curr_mode == OG_MOD_AP) {
-    html += FPSTR(html_mobile_header); 
-    html += FPSTR(html_ap_home);
-  } else {
-    html += FPSTR(html_jquery_header);
-    html += FPSTR(html_sta_home);
-  }
-  server_send_html(html);
-}
-
-void on_sta_view_options() {
-  if(curr_mode == OG_MOD_AP) return;
-  String html = FPSTR(html_jquery_header);
-  html += FPSTR(html_sta_options);
-  server_send_html(html);
-}
-
-void on_sta_view_logs() {
-  if(curr_mode == OG_MOD_AP) return;
-  String html = FPSTR(html_jquery_header);
-  html += FPSTR(html_sta_logs);
-  server_send_html(html);
 }
 
 char dec2hexchar(byte dec) {
@@ -169,66 +149,140 @@ String get_ip() {
   return ip;
 }
 
-void on_sta_controller() {
-  if(curr_mode == OG_MOD_AP) return;
-  String html = "";
-  html += F("{\"dist\":");
-  html += distance;
-  html += F(",\"door\":");
-  html += door_status;
-  html += F(",\"rcnt\":");
-  html += read_cnt;
-  html += F(",\"fwv\":");
-  html += og.options[OPTION_FWV].ival;
-  html += F(",\"name\":\"");
-  html += og.options[OPTION_NAME].sval;
-  html += F("\",\"mac\":\"");
-  html += get_mac();
-  html += F("\",\"cid\":");
-  html += ESP.getChipId();
-  html += F("}");
-  server_send_html(html);
-}
-
-void on_sta_logs() {
-  if(curr_mode == OG_MOD_AP) return;
-  String html = "";
-  html += F("{\"name\":\"");
-  html += og.options[OPTION_NAME].sval;
-  html += F("\",\"time\":");
-  html += curr_utc_time;
-  html += F(",\"logs\":[");
-  if(!og.read_log_start()) {
-    html += F("]}");
-    server_send_html(html);
-    return;
-  }
-  LogStruct l;
-  for(uint i=0;i<MAX_LOG_RECORDS;i++) {
-    if(!og.read_log_next(l)) break;
-    if(!l.tstamp) continue;
-    html += F("[");
-    html += l.tstamp;
-    html += F(",");
-    html += l.status;
-    html += F(",");
-    html += l.dist;
-    html += F("],");
-  }
-  og.read_log_end();
-  html.remove(html.length()-1); // remove the extra ,
-  html += F("]}");
-  server_send_html(html);
-}
-
 bool verify_device_key() {
   if(server->hasArg("dkey") && (server->arg("dkey") == og.options[OPTION_DKEY].sval))
     return true;
   return false;
 }
 
-void on_sta_change_controller() {
+void on_get_home()
+{
+  String html = "";
+  
+  if(curr_mode == OG_MOD_AP) {
+    html += FPSTR(html_mobile_header); 
+    html += FPSTR(html_ap_home);
+  } else {
+    html += FPSTR(html_jquery_header);
+    html += FPSTR(html_sta_home);
+  }
+  server_send_html(html);
+}
+
+void on_get_options() {
   if(curr_mode == OG_MOD_AP) return;
+  String html = FPSTR(html_jquery_header);
+  html += FPSTR(html_sta_options);
+  server_send_html(html);
+}
+
+void on_get_logs() {
+  if(curr_mode == OG_MOD_AP) return;
+  String html = FPSTR(html_jquery_header);
+  html += FPSTR(html_sta_logs);
+  server_send_html(html);
+}
+
+void on_json_controller() {
+  if(curr_mode == OG_MOD_AP) return;
+
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject& root = jsonBuffer.createObject();
+
+  root["dist"] = distance;
+  root["door"] = door_status;
+  root["rcnt"] = read_cnt;
+  root["fwv"] = og.options[OPTION_FWV].ival;
+  root["name"] = og.options[OPTION_NAME].sval;
+  root["mac"] = get_mac();
+  root["cid"] = ESP.getChipId();
+  
+  String retJson;
+  root.printTo(retJson);
+
+  server_send_json(retJson);
+}
+
+void on_json_logs() {
+  if(curr_mode == OG_MOD_AP) return;
+
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject& root = jsonBuffer.createObject();
+
+  root["name"] = og.options[OPTION_NAME].sval;
+  root["time"] = curr_utc_time;
+
+  JsonArray& logs = root.createNestedArray("logs");
+ 
+  LogStruct l;
+  for(uint i=0;i<MAX_LOG_RECORDS;i++) {
+    if(!og.read_log_next(l)) break;
+    if(!l.tstamp) continue;
+
+    JsonObject& log = logs.createNestedObject();
+    log["tstamp"] = l.tstamp;
+    log["status"] = l.status;
+    log["dist"] = l.dist;
+  }
+  og.read_log_end();
+
+    JsonObject& log = logs.createNestedObject();
+    log["tstamp"] = "1234566";
+    log["status"] = 1;
+    log["dist"] = 12.34;
+
+  String retJson;
+  root.printTo(retJson);
+
+  server_send_json(retJson);
+}
+
+void on_json_options() {
+  if(curr_mode == OG_MOD_AP) return;
+
+  OptionStruct *o = og.options;
+  
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject& root = jsonBuffer.createObject();
+
+
+  for(byte i=0;i<NUM_OPTIONS;i++,o++) {
+    if(!o->max) {
+      if(i==OPTION_NAME || i==OPTION_AUTH) {  // only output selected string options
+        root[o->name] = o->sval;
+      }
+    } else {  // if this is a int option
+      root[o->name] = o->ival;
+    }
+  }
+
+  String retJson;
+  root.printTo(retJson);
+
+  server_send_json(retJson);
+}
+
+void on_json_status(){
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject& root = jsonBuffer.createObject();
+
+  root["distance"] = distance;
+  root["status"] = door_status;
+  root["reads"] = read_cnt;
+  root["fwv"] = og.options[OPTION_FWV].ival;
+  root["name"] = og.options[OPTION_NAME].sval;
+  root["mac"] = get_mac();
+  root["heap"] = ESP.getFreeHeap();
+  root["chipId"] = ESP.getChipId();
+
+  String retJson;
+  root.printTo(retJson);
+
+  server_send_json(retJson);
+}
+
+void on_controller() {
+  //if(curr_mode == OG_MOD_AP) return;
 
   if(!verify_device_key()) {
     server_send_result(HTML_UNAUTHORIZED);
@@ -328,37 +382,9 @@ void on_sta_change_options() {
   server_send_result(HTML_SUCCESS);
 }
 
-void on_sta_options() {
-  if(curr_mode == OG_MOD_AP) return;
-  String html = "{";
-  OptionStruct *o = og.options;
-  for(byte i=0;i<NUM_OPTIONS;i++,o++) {
-    if(!o->max) {
-      if(i==OPTION_NAME || i==OPTION_AUTH) {  // only output selected string options
-        html += F("\"");
-        html += o->name;
-        html += F("\":");
-        html += F("\"");
-        html += o->sval;
-        html += F("\"");
-        html += ",";
-      }
-    } else {  // if this is a int option
-      html += F("\"");
-      html += o->name;
-      html += F("\":");
-      html += o->ival;
-      html += ",";
-    }
-  }
-  html.remove(html.length()-1); // remove the extra ,
-  html += F("}");
-  server_send_html(html);
-}
-
-void on_ap_scan() {
+void on_get_networks() {
   if(curr_mode == OG_MOD_STA) return;
-  server_send_html(scanned_ssids);
+  server_send_json(scanned_ssids);
 }
 
 void on_ap_change_config() {
@@ -380,11 +406,17 @@ void on_ap_change_config() {
 
 void on_ap_try_connect() {
   if(curr_mode == OG_MOD_STA) return;
-  String html = "{";
-  html += F("\"ip\":");
-  html += (WiFi.status() == WL_CONNECTED) ? (uint32_t)WiFi.localIP() : 0;
-  html += F("}");
-  server_send_html(html);
+
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject& root = jsonBuffer.createObject();
+
+  root["ip"] = (WiFi.status() == WL_CONNECTED) ? (uint32_t)WiFi.localIP() : 0;
+
+  String retJson;
+  root.printTo(retJson);
+
+  server_send_json(retJson);
+
   if(WiFi.status() == WL_CONNECTED && WiFi.localIP()) {
     og.options[OPTION_MOD].ival = OG_MOD_STA;
     if(og.options[OPTION_AUTH].sval.length() == 32) {
@@ -394,27 +426,6 @@ void on_ap_try_connect() {
     restart_timeout = millis() + 2000;
     og.state = OG_STATE_RESTART;
   }
-}
-
-
-void on_get_status(){
-  String html = "";
-  html += F("{\"distance\":");
-  html += distance;
-  html += F(",\"status\":");
-  html += door_status;
-  html += F(",\"reads\":");
-  html += read_cnt;
-  html += F(",\"fwv\":");
-  html += og.options[OPTION_FWV].ival;
-  html += F(",\"name\":\"");
-  html += og.options[OPTION_NAME].sval;
-  html += F("\",\"mac\":\"");
-  html += get_mac();
-  html += F("\",\"chipId\":");
-  html += ESP.getChipId();
-  html += F("}");
-  server_send_html(html);
 }
 
 void do_setup()
@@ -491,7 +502,7 @@ byte check_door_status_hist() {
   return DOOR_STATUS_MIXED;
 }
 
-void on_sta_update() {
+void on_get_update() {
   String html = FPSTR(html_jquery_header); 
   html += FPSTR(html_sta_update);
   server_send_html(html);
@@ -666,8 +677,8 @@ void do_loop() {
       scanned_ssids = scan_network();
       String ap_ssid = get_ap_ssid();
       start_network_ap(ap_ssid.c_str(), NULL);
-      server->on("/",   on_home);    
-      server->on("/js", on_ap_scan);
+      server->on("/",   on_get_home);    
+      server->on("/networks", on_get_networks);
       server->on("/cc", on_ap_change_config);
       server->on("/jt", on_ap_try_connect);
       server->begin();
@@ -692,21 +703,23 @@ void do_loop() {
       if(curr_local_access_en) {
         // use ap ssid as mdns name
         if(MDNS.begin(get_ap_ssid().c_str())) {
-          DEBUG_PRINTLN(F("MDNS registered"));
+          DEBUG_PRINT(F("MDNS registered : "));
+          DEBUG_PRINTLN(get_ap_ssid().c_str());
         }
-        server->on("/", on_home);
-        server->on("/jc", on_sta_controller);
-        server->on("/jo", on_sta_options);
-        server->on("/jl", on_sta_logs);
-        server->on("/vo", on_sta_view_options);
-        server->on("/vl", on_sta_view_logs);
-        server->on("/cc", on_sta_change_controller);
-        server->on("/co", on_sta_change_options);
-        server->on("/update", HTTP_GET, on_sta_update);
+        server->on("/", on_get_home);
+        server->on("/json/logs", on_json_logs);
+        server->on("/json/status", on_json_status);
+        server->on("/json/controller", on_json_controller);
+        server->on("/json/options", on_json_options);
+
+
+        server->on("/logs", on_get_logs);
+        //server->on("/status", on_get_status);
+        server->on("/controller", on_controller);
+        server->on("/options", HTTP_GET, on_get_options);
+        server->on("/options", HTTP_POST, on_sta_change_options);
+        server->on("/update", HTTP_GET, on_get_update);
         server->on("/update", HTTP_POST, on_sta_upload_fin, on_sta_upload);
-
-        server->on("/status", HTTP_GET, on_get_status);
-
 
         server->begin();
       }
@@ -720,6 +733,9 @@ void do_loop() {
       led_blink_ms = 0;
       og.set_led(LOW);
       
+      DEBUG_PRINT("Connected to ");
+      DEBUG_PRINT(WiFi.SSID());
+      DEBUG_PRINT(" at ");
       DEBUG_PRINTLN(WiFi.localIP());
     } else {
       delay(500);
