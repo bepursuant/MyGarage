@@ -27,13 +27,13 @@
 #define OG_FWV    100   // Firmware version: 100 means 1.0.0
 
 /** GPIO pins */
-#define PIN_RELAY  15
-#define PIN_BUTTON  0
-#define PIN_TRIG   12
-#define PIN_ECHO   14
-#define PIN_LED     2
-#define PIN_RESET  16
-#define PIN_BUZZER 13
+#define PIN_RELAY  D1
+#define PIN_BUTTON D2
+#define PIN_TRIG   D3
+#define PIN_ECHO   D4
+#define PIN_LED    D5
+#define PIN_RESET  D6
+#define PIN_BUZZER D7
 
 // Default device name
 #define DEFAULT_NAME    "My OpenGarage"
