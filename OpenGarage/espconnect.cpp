@@ -21,14 +21,7 @@
  */
  
 #include "espconnect.h"
-#include "json.hpp"
-#include "html_ap_home.h"
-#include "html_sta_options.h"
-#include "html_sta_home.h"
-#include "html_sta_update.h"
-#include "html_sta_logs.h"
-
-using json = nlohmann::json;
+#include "www_assets.h"
 
 // R is a C++ literal for raw string
 const char html_mobile_header[] PROGMEM = R"(<head><meta name='viewport' content='width=device-width,initial-scale=1.0,minimum-scale=1.0,user-scalable=no'><title>OpenGarage</title><style>body{font-family:'helvetica';}</style></head>)";
@@ -48,22 +41,28 @@ String scan_network() {
   DEBUG_PRINT(n);
   DEBUG_PRINT(F("..."));
 
-  json networks;
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject& root = jsonBuffer.createObject();
+
+  JsonArray& networks = root.createNestedArray("networks");
 
   for(int i=0;i<n;i++) {
-    networks["networks"][i]["ssid"] = WiFi.SSID(i);
-    networks["networks"][i]["encryption"] = WiFi.encryptionType(i);
-    networks["networks"][i]["rssi"] = WiFi.RSSI(i);
-    networks["networks"][i]["bssid"] = WiFi.BSSID(i);
-    networks["networks"][i]["bssidstr"] = WiFi.BSSIDstr(i);
-    networks["networks"][i]["channel"] = WiFi.channel(i);
-    networks["networks"][i]["isHidden"] = WiFi.isHidden(i);
-    };
+    JsonObject& network = networks.createNestedObject();
+    network["ssid"] = WiFi.SSID(i);
+    network["encryption"] = WiFi.encryptionType(i);
+    network["rssi"] = WiFi.RSSI(i);
+    network["bssid"] = WiFi.BSSIDstr(i);
+    network["channel"] = WiFi.channel(i);
+    network["isHidden"] = WiFi.isHidden(i);
   }
 
-  DEBUG_PRINTLN(F("ok!"));
+  root["server_time"] = millis();
 
-  return networks.dump();
+  String retJson;
+  root.printTo(retJson);
+
+  DEBUG_PRINTLN(F("ok!"));
+  return retJson;
 }
 
 void start_network_ap(const char *ssid, const char *pass) {
