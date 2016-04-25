@@ -24,7 +24,7 @@
 #define _DEFINES_H
 
 /** Firmware version, hardware version, and maximal values */
-#define OG_FWV    100   // Firmware version: 100 means 1.0.0
+#define OG_FIRMWARE_VERSION    100   // Firmware version: 100 means 1.0.0
 
 /** GPIO pins */
 #define PIN_RELAY  D1
@@ -38,25 +38,25 @@
 // Default device name
 #define DEFAULT_NAME    "My OpenGarage"
 // Default device key
-#define DEFAULT_DKEY    "opendoor"
+#define DEFAULT_DEVICEKEY    "opendoor"
 // Config file name
 #define CONFIG_FNAME    "/config.dat"
 // Log file name
 #define LOG_FNAME       "/log.dat"
 
-#define OG_ACC_LOCAL    0x00
-#define OG_ACC_BOTH     0x01
-#define OG_ACC_CLOUD    0x02
+#define OG_ACCESS_MODE_LOCAL    0x00
+#define OG_ACCESS_MODE_BOTH     0x01
+#define OG_ACCESS_MODE_CLOUD    0x02
 
-#define OG_MNT_CEILING  0x00
-#define OG_MNT_SIDE     0x01
+#define OG_MOUNT_TYPE_CEILING  0x00
+#define OG_MOUNT_TYPE_SIDE     0x01
 
-#define OG_ALM_NONE     0x00
-#define OG_ALM_5        0x01
-#define OG_ALM_10       0x02
+#define OG_ALARM_NONE     0x00
+#define OG_ALARM_5        0x01
+#define OG_ALARM_10       0x02
 
-#define OG_MOD_AP       0xA9
-#define OG_MOD_STA      0x2A
+#define OG_MODE_AP       0xA9
+#define OG_MODE_STA      0x2A
 
 #define OG_STATE_INITIAL        0
 #define OG_STATE_CONNECTING     1
@@ -65,11 +65,11 @@
 #define OG_STATE_RESET          9
 #define OG_STATE_RESTART        10
 
-#define BLYNK_PIN_LED   V0
-#define BLYNK_PIN_RELAY V1
-#define BLYNK_PIN_LCD   V2
-#define BLYNK_PIN_DIST  V3
-#define BLYNK_PIN_RCNT  V4
+#define BLYNK_PIN_LED         V0
+#define BLYNK_PIN_RELAY       V1
+#define BLYNK_PIN_LCD         V2
+#define BLYNK_PIN_DIST        V3
+#define BLYNK_PIN_READ_COUNT  V4
 
 #define MAX_LOG_RECORDS    100
 #define ALARM_FREQ         1000
@@ -83,18 +83,18 @@
 #define DOOR_STATUS_MIXED         4
 
 typedef enum {
-  OPTION_FWV = 0, // firmware version
-  OPTION_ACC,     // accessbility
-  OPTION_MNT,     // mount type
+  OPTION_FIRMWARE_VERSION = 0, // firmware version
+  OPTION_ACCESS_MODE,     // accessbility
+  OPTION_MOUNT_TYPE,     // mount type
   OPTION_DTH,     // distance threshold
   OPTION_RIV,     // read interval
-  OPTION_ALM,     // alarm mode
-  OPTION_HTP,     // http port
+  OPTION_ALARM,     // alarm mode
+  OPTION_HTTP_PORT,     // http port
   OPTION_MOD,     // mode
   OPTION_SSID,    // wifi ssid
   OPTION_PASS,    // wifi password
   OPTION_AUTH,    // authentication token
-  OPTION_DKEY,    // device key
+  OPTION_DEVICEKEY,    // device key
   OPTION_NAME,    // device name
   NUM_OPTIONS     // number of options
 } OG_OPTION_enum;
