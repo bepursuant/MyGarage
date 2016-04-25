@@ -35,18 +35,18 @@ static const char* log_fname = LOG_FNAME;
  * String options don't have integer or max value
  */
 OptionStruct OpenGarage::options[] = {
-  {"fwv", OG_FWV,      255, ""},
-  {"acc", OG_ACC_LOCAL,  2, ""},
-  {"mnt", OG_MNT_CEILING,1, ""},
+  {"firmware_version", OG_FIRMWARE_VERSION,      255, ""},
+  {"access_mode", OG_ACCESS_MODE_LOCAL,  2, ""},
+  {"mount_type", OG_MOUNT_TYPE_CEILING,1, ""},
   {"dth", 50,        65535, ""},
-  {"riv", 4,           300, ""},
-  {"alm", OG_ALM_5,      2, ""},
-  {"htp", 80,        65535, ""},
-  {"mod", OG_MOD_AP,   255, ""},
+  {"read_interval", 4,           300, ""},
+  {"alarm", OG_ALARM_5,      2, ""},
+  {"http_port", 80,        65535, ""},
+  {"mode", OG_MODE_AP,   255, ""},
   {"ssid", 0, 0, ""},  // string options have 0 max value
   {"pass", 0, 0, ""},
   {"auth", 0, 0, ""},
-  {"dkey", 0, 0, DEFAULT_DKEY},
+  {"devicekey", 0, 0, DEFAULT_DEVICEKEY},
   {"name", 0, 0, DEFAULT_NAME}
 };
     
@@ -94,11 +94,11 @@ void OpenGarage::options_setup() {
   }
   options_load();
   
-  if(options[OPTION_FWV].ival != OG_FWV)  {
+  if(options[OPTION_FIRMWARE_VERSION].ival != OG_FIRMWARE_VERSION)  {
     // if firmware version has changed
     // re-save options, thus preserving
     // shared options with previous firmwares
-    options[OPTION_FWV].ival = OG_FWV;
+    options[OPTION_FIRMWARE_VERSION].ival = OG_FIRMWARE_VERSION;
     options_save();
     return;
   }
@@ -213,8 +213,8 @@ uint OpenGarage::read_distance() {
 }
 
 bool OpenGarage::get_cloud_access_en() {
-  if(options[OPTION_ACC].ival == OG_ACC_CLOUD ||
-     options[OPTION_ACC].ival == OG_ACC_BOTH) {
+  if(options[OPTION_ACCESS_MODE].ival == OG_ACCESS_MODE_CLOUD ||
+     options[OPTION_ACCESS_MODE].ival == OG_ACCESS_MODE_BOTH) {
     if(options[OPTION_AUTH].sval.length()==32) {
       return true;
     }
@@ -223,8 +223,8 @@ bool OpenGarage::get_cloud_access_en() {
 }
 
 bool OpenGarage::get_local_access_en() {
-  if(options[OPTION_ACC].ival == OG_ACC_LOCAL ||
-     options[OPTION_ACC].ival == OG_ACC_BOTH)
+  if(options[OPTION_ACCESS_MODE].ival == OG_ACCESS_MODE_LOCAL ||
+     options[OPTION_ACCESS_MODE].ival == OG_ACCESS_MODE_BOTH)
      return true;
   return false;
 }

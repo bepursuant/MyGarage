@@ -21,7 +21,7 @@
  */
 
 
-//#define EN_BLYNK    //uncomment to enable blynk support
+#define EN_BLYNK    //uncomment to enable blynk support
 
 // if we have blynk enabled and serial debugging, 
 // pass that command to the blink library
@@ -45,7 +45,7 @@ OpenGarage og;
 ESP8266WebServer *server = NULL;
 
 static String scanned_ssids;
-static byte read_cnt = 0;
+static byte read_count = 0;
 static uint distance = 0;
 static byte door_status = 0;
 static bool curr_cloud_access_en = false;
@@ -60,6 +60,10 @@ static ulong curr_utc_time = 0;
 
 void do_setup();
 
+
+// Define some helper functions below for interacting with the 
+// server, such as sending an html or json response headers
+// and content to the browser.
 void server_send_html(String html) {
   server->send(200, "text/html", html);
 }
@@ -68,6 +72,13 @@ void server_send_json(String json){
   server->send(200, "text/json", json);
 }
 
+void server_send_json(JsonObject root){
+  String retJson;
+  root.printTo(retJson);
+  server->send(200, "text/json", retJson);
+}
+
+// send a validation result, including the result code [and item name]
 void server_send_result(byte code, const char* item = NULL) {
   DynamicJsonBuffer jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
@@ -82,6 +93,9 @@ void server_send_result(byte code, const char* item = NULL) {
   server_send_json(retJson);
 }
 
+// The below are methods used to pull values from the requests GET
+// or POST variables by key. Add an overload to optionally pull
+// the value in as uint or String
 bool get_value_by_key(const char* key, uint& val) {
   if(server->hasArg(key)) {
     val = server->arg(key).toInt();   
@@ -100,11 +114,13 @@ bool get_value_by_key(const char* key, String& val) {
   }
 }
 
+// convert a decimal byte value into it's char
 char dec2hexchar(byte dec) {
   if(dec<10) return '0'+dec;
   else return 'A'+(dec-10);
 }
 
+// grab the mac address as a decimal and return it as a string
 String get_mac() {
   static String hex = "";
   if(!hex.length()) {
@@ -120,20 +136,26 @@ String get_mac() {
   return hex;
 }
 
+// Generate a default SSID name, used both in AP mode
+// and for MDNS registration in STA mode.
 String get_ap_ssid() {
   static String ap_ssid = "";
   if(!ap_ssid.length()) {
+
     byte mac[6];
     WiFi.macAddress(mac);
-    ap_ssid = "DIRECT-AP[OG]";
+    ap_ssid = "OG-";
+
     for(byte i=3;i<6;i++) {
       ap_ssid += dec2hexchar((mac[i]>>4)&0x0F);
       ap_ssid += dec2hexchar(mac[i]&0x0F);
     }
+
   }
   return ap_ssid;
 }
 
+// get the ip as an array of octets and return as a dotted decimal string
 String get_ip() {
   static String ip = "";
   if(!ip.length()) {
@@ -149,50 +171,53 @@ String get_ip() {
   return ip;
 }
 
-bool verify_device_key() {
-  if(server->hasArg("dkey") && (server->arg("dkey") == og.options[OPTION_DKEY].sval))
+// validate if the correct device key was provided for protected commands
+bool verify_devicekey() {
+  if(server->hasArg("devicekey") && (server->arg("devicekey") == og.options[OPTION_DEVICEKEY].sval))
     return true;
-  return false;
 }
 
-void on_get_home()
+
+void on_get_index()
 {
   String html = "";
   
-  if(curr_mode == OG_MOD_AP) {
+  if(curr_mode == OG_MODE_AP) {
     html += FPSTR(html_mobile_header); 
     html += FPSTR(html_ap_home);
   } else {
     html += FPSTR(html_jquery_header);
     html += FPSTR(html_sta_home);
   }
+
   server_send_html(html);
 }
 
 void on_get_options() {
-  if(curr_mode == OG_MOD_AP) return;
   String html = FPSTR(html_jquery_header);
   html += FPSTR(html_sta_options);
   server_send_html(html);
 }
 
 void on_get_logs() {
-  if(curr_mode == OG_MOD_AP) return;
   String html = FPSTR(html_jquery_header);
   html += FPSTR(html_sta_logs);
   server_send_html(html);
 }
 
-void on_json_controller() {
-  if(curr_mode == OG_MOD_AP) return;
+void on_get_portal() {
+  String html = FPSTR(html_portal);
+  server_send_html(html);
+}
 
+void on_json_controller() {
   DynamicJsonBuffer jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
 
   root["dist"] = distance;
   root["door"] = door_status;
-  root["rcnt"] = read_cnt;
-  root["fwv"] = og.options[OPTION_FWV].ival;
+  root["read_count"] = read_count;
+  root["firmware_version"] = og.options[OPTION_FIRMWARE_VERSION].ival;
   root["name"] = og.options[OPTION_NAME].sval;
   root["mac"] = get_mac();
   root["cid"] = ESP.getChipId();
@@ -204,8 +229,6 @@ void on_json_controller() {
 }
 
 void on_json_logs() {
-  if(curr_mode == OG_MOD_AP) return;
-
   DynamicJsonBuffer jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
 
@@ -238,13 +261,10 @@ void on_json_logs() {
 }
 
 void on_json_options() {
-  if(curr_mode == OG_MOD_AP) return;
-
   OptionStruct *o = og.options;
   
   DynamicJsonBuffer jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
-
 
   for(byte i=0;i<NUM_OPTIONS;i++,o++) {
     if(!o->max) {
@@ -268,8 +288,8 @@ void on_json_status(){
 
   root["distance"] = distance;
   root["status"] = door_status;
-  root["reads"] = read_cnt;
-  root["fwv"] = og.options[OPTION_FWV].ival;
+  root["reads"] = read_count;
+  root["firmware_version"] = og.options[OPTION_FIRMWARE_VERSION].ival;
   root["name"] = og.options[OPTION_NAME].sval;
   root["mac"] = get_mac();
   root["heap"] = ESP.getFreeHeap();
@@ -282,15 +302,13 @@ void on_json_status(){
 }
 
 void on_controller() {
-  //if(curr_mode == OG_MOD_AP) return;
-
-  if(!verify_device_key()) {
+  if(!verify_devicekey()) {
     server_send_result(HTML_UNAUTHORIZED);
     return;
   }
   if(server->hasArg("click")) {
     server_send_result(HTML_SUCCESS);
-    if(!og.options[OPTION_ALM].ival) {
+    if(!og.options[OPTION_ALARM].ival) {
       // if alarm is not enabled, trigger relay right away
       og.click_relay();
     } else {
@@ -306,9 +324,7 @@ void on_controller() {
 }
 
 void on_sta_change_options() {
-  if(curr_mode == OG_MOD_AP) return;
-  
-  if(!verify_device_key()) {
+  if(!verify_devicekey()) {
     server_send_result(HTML_UNAUTHORIZED);
     return;
   }
@@ -322,8 +338,8 @@ void on_sta_change_options() {
   for(i=0;i<NUM_OPTIONS;i++,o++) {
     const char *key = o->name.c_str();
     // these options cannot be modified here
-    if(i==OPTION_FWV || i==OPTION_MOD  || i==OPTION_SSID ||
-      i==OPTION_PASS || i==OPTION_DKEY)
+    if(i==OPTION_FIRMWARE_VERSION || i==OPTION_MOD  || i==OPTION_SSID ||
+      i==OPTION_PASS || i==OPTION_DEVICEKEY)
       continue;
     
     if(o->max) {  // integer options
@@ -359,8 +375,8 @@ void on_sta_change_options() {
   for(i=0;i<NUM_OPTIONS;i++,o++) {
     const char *key = o->name.c_str();
     // these options cannot be modified here
-    if(i==OPTION_FWV || i==OPTION_MOD  || i==OPTION_SSID ||
-      i==OPTION_PASS || i==OPTION_DKEY)
+    if(i==OPTION_FIRMWARE_VERSION || i==OPTION_MOD  || i==OPTION_SSID ||
+      i==OPTION_PASS || i==OPTION_DEVICEKEY)
       continue;
     
     if(o->max) {  // integer options
@@ -375,7 +391,7 @@ void on_sta_change_options() {
   }
 
   if(get_value_by_key(_nkey, nkey)) {
-      og.options[OPTION_DKEY].sval = nkey;
+      og.options[OPTION_DEVICEKEY].sval = nkey;
   }
 
   og.options_save();
@@ -383,12 +399,12 @@ void on_sta_change_options() {
 }
 
 void on_get_networks() {
-  if(curr_mode == OG_MOD_STA) return;
+  if(curr_mode == OG_MODE_STA) return;
   server_send_json(scanned_ssids);
 }
 
 void on_ap_change_config() {
-  if(curr_mode == OG_MOD_STA) return;
+  if(curr_mode == OG_MODE_STA) return;
   String html = FPSTR(html_mobile_header);
   if(server->hasArg("ssid")) {
     og.options[OPTION_SSID].sval = server->arg("ssid");
@@ -405,7 +421,7 @@ void on_ap_change_config() {
 }
 
 void on_ap_try_connect() {
-  if(curr_mode == OG_MOD_STA) return;
+  if(curr_mode == OG_MODE_STA) return;
 
   DynamicJsonBuffer jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
@@ -418,9 +434,9 @@ void on_ap_try_connect() {
   server_send_json(retJson);
 
   if(WiFi.status() == WL_CONNECTED && WiFi.localIP()) {
-    og.options[OPTION_MOD].ival = OG_MOD_STA;
+    og.options[OPTION_MOD].ival = OG_MODE_STA;
     if(og.options[OPTION_AUTH].sval.length() == 32) {
-      og.options[OPTION_ACC].ival = OG_ACC_BOTH;
+      og.options[OPTION_ACCESS_MODE].ival = OG_ACCESS_MODE_BOTH;
     }
     og.options_save();  
     restart_timeout = millis() + 2000;
@@ -442,9 +458,9 @@ void do_setup()
   curr_mode = og.get_mode();
   if(!server) {
     DEBUG_PRINT(F("Starting server on port "));
-    DEBUG_PRINT(og.options[OPTION_HTP].ival);
+    DEBUG_PRINT(og.options[OPTION_HTTP_PORT].ival);
     DEBUG_PRINT("...");
-    server = new ESP8266WebServer(og.options[OPTION_HTP].ival);
+    server = new ESP8266WebServer(og.options[OPTION_HTTP_PORT].ival);
     DEBUG_PRINTLN("ok!");
   }
   led_blink_ms = LED_FAST_BLINK;
@@ -510,10 +526,9 @@ void on_get_update() {
 
 void on_sta_upload_fin() {
 
-  if(!verify_device_key()) {
+  if(!verify_devicekey()) {
     server_send_result(HTML_UNAUTHORIZED);
     Update.reset();
-    return;
   }
 
   // finish update and check error
@@ -568,11 +583,11 @@ void check_status() {
       distance = og.read_distance();
       og.set_led(LOW);
 
-      read_cnt = (read_cnt+1)%100;
+      read_count = (read_count+1)%100;
       uint threshold = og.options[OPTION_DTH].ival;
       door_status = (distance>threshold) ? 0 : 1;
 
-      if (og.options[OPTION_MNT].ival == OG_MNT_SIDE)    
+      if (og.options[OPTION_MOUNT_TYPE].ival == OG_MOUNT_TYPE_SIDE)    
         door_status = 1-door_status;  // reverse logic for side mount
 
       door_status_hist = (door_status_hist<<1) | door_status;
@@ -589,12 +604,12 @@ void check_status() {
       
       #ifdef EN_BLYNK
       if(curr_cloud_access_en && Blynk.connected()) {
-        Blynk.virtualWrite(BLYNK_PIN_RCNT, read_cnt);
+        Blynk.virtualWrite(BLYNK_PIN_READ_COUNT, read_count);
         Blynk.virtualWrite(BLYNK_PIN_DIST, distance);
         (door_status) ? blynk_led.on() : blynk_led.off();
         blynk_lcd.print(0, 0, get_ip());
         String str = ":";
-        str += og.options[OPTION_HTP].ival;
+        str += og.options[OPTION_HTTP_PORT].ival;
         str += " " + get_ap_ssid();
         blynk_lcd.print(0, 1, str);
         if(event == DOOR_STATUS_JUST_OPENED) {
@@ -673,11 +688,11 @@ void do_loop() {
   
   switch(og.state) {
   case OG_STATE_INITIAL:
-    if(curr_mode == OG_MOD_AP) {
+    if(curr_mode == OG_MODE_AP) {
       scanned_ssids = scan_network();
       String ap_ssid = get_ap_ssid();
       start_network_ap(ap_ssid.c_str(), NULL);
-      server->on("/",   on_get_home);    
+      server->on("/",   on_get_index);    
       server->on("/networks", on_get_networks);
       server->on("/cc", on_ap_change_config);
       server->on("/jt", on_ap_try_connect);
@@ -703,23 +718,25 @@ void do_loop() {
       if(curr_local_access_en) {
         // use ap ssid as mdns name
         if(MDNS.begin(get_ap_ssid().c_str())) {
-          DEBUG_PRINT(F("MDNS registered : "));
+          DEBUG_PRINT(F("Registered MDNS as "));
           DEBUG_PRINTLN(get_ap_ssid().c_str());
         }
-        server->on("/", on_get_home);
-        server->on("/json/logs", on_json_logs);
-        server->on("/json/status", on_json_status);
-        server->on("/json/controller", on_json_controller);
-        server->on("/json/options", on_json_options);
 
-
+        server->on("/", on_get_index);
         server->on("/logs", on_get_logs);
+        server->on("/portal", on_get_portal);
         //server->on("/status", on_get_status);
         server->on("/controller", on_controller);
         server->on("/options", HTTP_GET, on_get_options);
         server->on("/options", HTTP_POST, on_sta_change_options);
         server->on("/update", HTTP_GET, on_get_update);
         server->on("/update", HTTP_POST, on_sta_upload_fin, on_sta_upload);
+
+        // define all of the json data providers / API urls
+        server->on("/json/logs", on_json_logs);
+        server->on("/json/status", on_json_status);
+        server->on("/json/controller", on_json_controller);
+        server->on("/json/options", on_json_options);
 
         server->begin();
       }
@@ -733,9 +750,9 @@ void do_loop() {
       led_blink_ms = 0;
       og.set_led(LOW);
       
-      DEBUG_PRINT("Connected to ");
+      DEBUG_PRINT(F("Connected to "));
       DEBUG_PRINT(WiFi.SSID());
-      DEBUG_PRINT(" at ");
+      DEBUG_PRINT(F(" as "));
       DEBUG_PRINTLN(WiFi.localIP());
     } else {
       delay(500);
@@ -776,7 +793,7 @@ void do_loop() {
   
   }
   
-  if(og.state == OG_STATE_CONNECTED && curr_mode == OG_MOD_STA) {
+  if(og.state == OG_STATE_CONNECTED && curr_mode == OG_MODE_STA) {
     time_keeping();
     check_status();
   }
@@ -788,7 +805,7 @@ void do_loop() {
 #ifdef EN_BLYNK
 BLYNK_WRITE(V1)
 {
-  if(!og.options[OPTION_ALM].ival) {
+  if(!og.options[OPTION_ALARM].ival) {
     // if alarm is disabled, trigger right away
     if(param.asInt()) {
       og.set_relay(HIGH);
