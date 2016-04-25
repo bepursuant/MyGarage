@@ -307,79 +307,329 @@ xhr.send(fd);
 </script>
 </body>
 )=====";
-const char html_sta_logs[] PROGMEM = R"=====(<body>
-<div data-role='page' id='page_log'>
-<div data-role='header'><h3><label id='lbl_name'></label> Log</h3></div>    
-<div data-role='content'>
-<p>Below are the most recent <label id='lbl_nr'></label> records</p>
-<p>Current time is <label id='lbl_time'></label></p>
-<div data-role='fieldcontain'>
-<table id='tab_log' border='1' cellpadding='4' style='border-collapse:collapse;'><tr><td align='center'><b>Time Stamp</b></td><td align='center'><b>Status</b></td><td align='center'><b>D (cm)</b></td></tr></table>
-</div>
-<div data-role="controlgroup" data-type="horizontal">
-<button data-theme="b" id="btn_close">Close</button>
-</div>
-</div>
-</div>
-<script>
-var curr_time = 0;
-var date = new Date();
-$("#btn_close").click(function(){close();});
-$(document).ready(function(){
-show_log();
-setInterval(show_time, 1000);
-});
-function show_time() {
-curr_time ++;
-date.setTime(curr_time*1000);
-$('#lbl_time').text(date.toLocaleString());
-}
-function show_log() {
-$.getJSON('/json/logs', function(response) {
-$('#lbl_name').text(response.name);
-curr_time = response.time;
-$('#tab_log').find('tr:gt(0)').remove();
-var logs=response.logs;
-logs.sort(function(a,b){return b[0]-a[0];});
-$('#lbl_nr').text(logs.length);
-var ldate = new Date();
-for(var i=0;i<logs.length;i++) {
-ldate.setTime(logs[i]["tstamp"]*1000);
-var r='<tr><td align="center">'+ldate.toLocaleString()+'</td><td align="center">'+(logs[i]["status"]?'OPEN':'closed')+'</td><td align="center">'+logs[i]["dist"]+'</td></tr>';
-$('#tab_log').append(r);
-}
-});
-setTimeout(show_log, 10000);
-}
-</script>
+const char html_sta_logs[] PROGMEM = R"=====(<body>
+<div data-role='page' id='page_log'>
+<div data-role='header'><h3><label id='lbl_name'></label> Log</h3></div>    
+<div data-role='content'>
+<p>Below are the most recent <label id='lbl_nr'></label> records</p>
+<p>Current time is <label id='lbl_time'></label></p>
+<div data-role='fieldcontain'>
+<table id='tab_log' border='1' cellpadding='4' style='border-collapse:collapse;'><tr><td align='center'><b>Time Stamp</b></td><td align='center'><b>Status</b></td><td align='center'><b>D (cm)</b></td></tr></table>
+</div>
+<div data-role="controlgroup" data-type="horizontal">
+<button data-theme="b" id="btn_close">Close</button>
+</div>
+</div>
+</div>
+<script>
+var curr_time = 0;
+var date = new Date();
+$("#btn_close").click(function(){close();});
+$(document).ready(function(){
+show_log();
+setInterval(show_time, 1000);
+});
+function show_time() {
+curr_time ++;
+date.setTime(curr_time*1000);
+$('#lbl_time').text(date.toLocaleString());
+}
+function show_log() {
+$.getJSON('/json/logs', function(response) {
+$('#lbl_name').text(response.name);
+curr_time = response.time;
+$('#tab_log').find('tr:gt(0)').remove();
+var logs=response.logs;
+logs.sort(function(a,b){return b[0]-a[0];});
+$('#lbl_nr').text(logs.length);
+var ldate = new Date();
+for(var i=0;i<logs.length;i++) {
+ldate.setTime(logs[i]["tstamp"]*1000);
+var r='<tr><td align="center">'+ldate.toLocaleString()+'</td><td align="center">'+(logs[i]["status"]?'OPEN':'closed')+'</td><td align="center">'+logs[i]["dist"]+'</td></tr>';
+$('#tab_log').append(r);
+}
+});
+setTimeout(show_log, 10000);
+}
+</script>
 </body>
 )=====";
 const char html_portal[] PROGMEM = R"=====(<!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Standard Meta -->
+<meta charset="utf-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+
+<!-- Site Properties -->
 <title>OpenGarage Portal</title>
-<link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.6.0/pure-min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/1.11.8/semantic.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/1.11.8/semantic.min.js"></script>
 </head>
 <body>
+<div class="ui top attached menu">
+<a href="/portal" class="header item">OpenGarage Portal</a>
+<a href="#" class="active item" data-tab="tab-status">
+<i class="dashboard icon"></i> Status
+</a>
+<a href="#/options" class="item" data-tab="tab-options">
+<i class="options icon"></i> Options
+</a>
+<a href="#/logs" class="item" data-tab="tab-logs">
+<i class="table icon"></i> Logs
+</a>
+<a href="#/about" class="item right" data-tab="tab-about">
+<i class="info icon"></i> About
+</a>
+</div>
 
-<header class="pure-menu pure-menu-horizontal">
-<menu>
-<a href="/portal" class="pure-menu-heading">OpenGarage Portal</a>
-<ul class="pure-menu-list">
-<li class="pure-menu-item pure-menu-selected"><a href="#" class="pure-menu-link">Current Status</a></li>
-<li class="pure-menu-item"><a href="#/options" class="pure-menu-link">Options</a></li>
-<li class="pure-menu-item"><a href="#/about" class="pure-menu-link">About</a></li>
-</ul>
-</menu>
-</header>
+<section class="ui segment">
 
-<section>
-<h3>Current Status</h3>
-OPENED at 2016-04-24 22:24:16
+<div class="ui bottom attached tab" data-tab="tab-none">
+Never show this tab, just here to take up some random CSS that I don't feel like solving right now
+</div>
+
+
+
+
+<div class="ui bottom attached active tab" data-tab="tab-status">
+<h3>Status</h3>
+</div>
+
+
+
+
+<div class="ui bottom attached tab" data-tab="tab-options">
+<h3>Options</h3>
+<form class="ui form">
+<div class="inline field">
+<label>Accessibility:</label>
+<select name='access_mode' id='access_mode'>
+<option value=0>Direct IP Only</option>
+<option value=1>Direct IP + Cloud</option>                  
+<option value=2>Cloud Only</option>
+</select>
+</div>
+
+<div class="inline field">
+<label>Cloud Token:</label>
+<input type='text' size=24 maxlength=32 id='auth' value='-'>
+</div>
+
+<div class="inline field">
+<label>Mount Type:</label>
+<select name='mount_type' id='mount_type'>
+<option value=0>Ceiling Mount</option>
+<option value=1>Side Mount</option>
+</select>
+</div>
+
+<div class="inline field">
+<label>Threshold (cm):</label>
+<input type='text' size=4 maxlength=4 id='dth' value=1>
+</div>
+
+<div class="inline field">
+<label>Read Interval (s):</label>
+<input type='text' size=3 maxlength=3 id='read_interval' value=1>
+</div>
+
+<div class="inline field">
+<label>Sound Alarm:</label>
+<select name='alarm' id='alarm'>      
+<option value=0>Disabled</option>
+<option value=1>5 seconds</option>                  
+<option value=2>10 seconds</option>      
+</select>
+</div>
+
+<div class="inline field">
+<label>Device Name:</label>
+<input type='text' size=20 maxlength=32 id='name' value='-'>
+</div>
+
+<div class="inline field">
+<label>HTTP Port:</label>
+<input type='text' size=5 maxlength=5 id='http_port' value=1>
+</div>
+
+<div class="inline field">
+<label>Device Key:</label>
+<input type='password' size=24 maxlength=32 id='devicekey'>
+</div>
+
+<div class="inline field">
+<div class="ui checkbox">
+<input type='checkbox' id='cb_key'>
+<label>Change Device Key</label>
+</div>
+</div>
+
+<div class="inline field">
+<label>New Key:</label>
+<input type='password' size=24 maxlength=32 id='nkey' disabled>
+</div>
+
+<div class="inline field">
+<label>Confirm:</label>
+<input type='password' size=24 maxlength=32 id='ckey' disabled>
+</div>
+				
+<p id='msg'></p>
+
+<button class="ui button" type="submit">Submit</button>
+</form>
+<script>
+//#msg acts as a response container for events
+function clear_msg() {
+$('#msg').text('');
+}  
+
+function show_msg(s) {
+$('#msg').text(s).css('color','red');
+setTimeout(clear_msg, 2000);
+}
+
+// enable/disable the change key textboxes when the 'change key'
+// checkbox is changed
+$('#cb_key').click(function(e){
+$('#nkey').textinput($(this).is(':checked')?'enable':'disable');
+$('#ckey').textinput($(this).is(':checked')?'enable':'disable');
+});
+
+$('#btn_cancel').click(function(e){
+e.preventDefault(); close();
+});
+				
+$('#btn_submit').click(function(e){
+e.preventDefault();
+if(confirm('Submit changes?')) {
+var comm='controller?devicekey='+encodeURIComponent($('#devicekey').val());
+comm+='&access_mode='+$('#access_mode').val();
+comm+='&mount_type='+$('#mount_type').val();
+comm+='&dth='+$('#dth').val();
+comm+='&read_interval='+$('#read_interval').val();
+comm+='&alarm='+$('#alarm').val();
+comm+='&http_port='+$('#http_port').val();
+comm+='&name='+encodeURIComponent($('#name').val());
+comm+='&auth='+encodeURIComponent($('#auth').val());
+if($('#cb_key').is(':checked')) {
+if(!$('#nkey').val()) {
+if(!confirm('New device key is empty. Are you sure?')) return;
+}
+comm+='&nkey='+encodeURIComponent($('#nkey').val());
+comm+='&ckey='+encodeURIComponent($('#ckey').val());
+}
+$.getJSON(comm, function(jd) {
+if(jd.result!=1) {
+if(jd.result==2) show_msg('Check device key and try again.');
+else show_msg('Error code: '+jd.result+', item: '+jd.item);
+} else {
+$('#msg').html('<font color=green>Options are successfully saved. Note that<br>changes to some options may require a reboot.</font>');
+$('#btn_submit').
+setTimeout(close, 4000);
+}
+});
+}
+});
+
+$(document).ready(function() {
+$.getJSON('/json/options', function(jd) {
+$('#firmware_version').text('v'+(jd.firmware_version/100>>0)+'.'+(jd.firmware_version/10%10>>0)+'.'+(jd.firmware_version%10>>0));
+$('#access_mode').val(jd.access_mode).selectmenu('refresh');
+$('#alarm').val(jd.alarm).selectmenu('refresh');
+$('#mount_type').val(jd.mount_type).selectmenu('refresh');
+$('#dth').val(jd.dth);
+$('#read_interval').val(jd.read_interval);
+$('#http_port').val(jd.http_port);
+$('#name').val(jd.name);
+$('#auth').val(jd.auth);
+});
+});
+</script>
+
+</div>
+
+
+
+
+<div class="ui bottom attached tab" data-tab="tab-logs">
+<h3>Log</h3>
+<div id="logs-refresh" class="ui button">
+<i class="refresh icon"></i> Refresh Logs
+</div>
+<table id="table-logs" class="ui table">
+<thead>
+<tr>
+<th>Time Stamp</th>
+<th>Status</th>
+<th>D (cm)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td colspan="3">No Logs Loaded</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+
+
+
+<div class="ui bottom attached tab" data-tab="tab-about">
+<h3>About</h3>
+</div>
+
 </section>
 
+<script>
+$(document).ready(function() {
+// setup tab behavior on top menu items
+$('.ui.menu a.item').tab().on('click', function(){
+$(this)
+.addClass('active')
+.siblings()
+.removeClass('active');
+});
+
+// setup log refresh button and load initial data
+$("#logs-refresh").click(function(){
+refresh_logs();
+}).click();
+});
+
+function refresh_logs() {
+$("#logs-refresh i").addClass("loading");
+
+$.getJSON('/json/logs', function(response) {
+
+// clear the table contents
+$('#table-logs').find('tbody tr').remove();
+
+var logs=response.logs;
+
+// quickly sort the logs by timestamp
+logs.sort(function(a,b){return b["tstamp"]-a["tstamp"];});
+
+$('#logs-count').text(logs.length);
+
+var ldate = new Date();
+
+for(var i=0;i<logs.length;i++) {
+ldate.setTime(logs[i]["tstamp"]*1000);
+var r='<tr><td>'+ldate.toLocaleString()+'</td><td>'+(logs[i]["status"]?'OPEN':'closed')+'</td><td>'+logs[i]["dist"]+'</td></tr>';
+$('#table-logs tbody').append(r);
+}
+
+$("#logs-refresh i").removeClass("loading");
+
+});
+}
+
+</script>
 </body>
 </html>
 )=====";
