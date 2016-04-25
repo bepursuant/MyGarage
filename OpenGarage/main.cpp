@@ -323,6 +323,25 @@ void on_controller() {
   }
 }
 
+void on_auth() {
+
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject& root = jsonBuffer.createObject();
+
+  if(server->hasArg("auth_devicekey") && (server->arg("auth_devicekey") == og.options[OPTION_DEVICEKEY].sval)){
+    root["result"] = "AUTH_SUCCESS";
+    root["token"] = "TOKEN";
+  } else {
+    root["result"] = "AUTH_FAILURE";
+  }
+
+  String retJson;
+  root.printTo(retJson);
+
+  server_send_json(retJson);
+
+}
+
 void on_sta_change_options() {
   if(!verify_devicekey()) {
     server_send_result(HTML_UNAUTHORIZED);
@@ -727,6 +746,7 @@ void do_loop() {
         server->on("/portal", on_get_portal);
         //server->on("/status", on_get_status);
         server->on("/controller", on_controller);
+        server->on("/auth", on_auth);
         server->on("/options", HTTP_GET, on_get_options);
         server->on("/options", HTTP_POST, on_sta_change_options);
         server->on("/update", HTTP_GET, on_get_update);
