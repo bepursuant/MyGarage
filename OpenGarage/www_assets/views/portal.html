@@ -15,12 +15,14 @@
 </head>
 <body>
 	<div class="ui top attached menu">
-		<a href="/portal" class="header item">OpenGarage Portal</a>
+		<a href="/portal" class="header item">
+			OpenGarage Portal
+		</a>
 		<a href="#" class="active item" data-tab="tab-status">
-			<i class="dashboard icon"></i> Status
+			<i class="heartbeat icon"></i> Status
 		</a>
 		<a href="#/logs" class="item" data-tab="tab-logs">
-			<i class="table icon"></i> Logs
+			<i class="history icon"></i> Logs
 		</a>
 		<a href="#/options" class="item" data-tab="tab-options">
 			<i class="options icon"></i> Options
@@ -41,8 +43,7 @@
 				</div>
 
 				<div id="door-button" class="ui button primary">
-					<i class="grid layout icon"></i>
-					Door Button
+					<i class="grid layout icon"></i> Door Button
 				</div>
 			</div>
 
@@ -115,29 +116,29 @@
 			<div id="options-refresh" class="ui button">
 				<i class="refresh icon"></i> Refresh Options
 			</div>
-			<form id="options_form" action="options" method="POST" class="ui form">
+			<form id="options_form" action="/options" method="POST" class="ui form">
 
 				<h4 class="ui dividing header">Device Settings</h4>
 
 				<div class="fields">
 					<div class="three wide field">
 						<label>Device Name:</label>
-						<input type='text' size=20 maxlength=32 id='name' value='-'>
+						<input type='text' size=20 maxlength=32 id='name' name="name" value='-'>
 					</div>
 
 					<div class="three wide field">
 						<label>
 						<div class="ui checkbox">
-							<input type='checkbox' id='change_devicekey'>
+							<input type='checkbox' id='change_devicekey' name="change_devicekey">
 							<label>Change DeviceKey</label>
 						</div>
 						</label>
-						<input type='password' size=24 maxlength=32 id='new_devicekey' disabled>
+						<input type='password' size=24 maxlength=32 id='new_devicekey' name="new_devicekey" disabled>
 					</div>
 
 					<div class="three wide field">
 						<label>Confirm:</label>
-						<input type='password' size=24 maxlength=32 id='confirm_devicekey' disabled>
+						<input type='password' size=24 maxlength=32 id='confirm_devicekey' name="confirm_devicekey" disabled>
 					</div>
 				</div>
 
@@ -155,12 +156,12 @@
 
 					<div class="two wide field">
 						<label>HTTP Port:</label>
-						<input type='text' size=5 maxlength=5 id='http_port' value=1>
+						<input type='text' size=5 maxlength=5 id='http_port' name="http_port" value=1>
 					</div>
 
 					<div class="three wide field">
 						<label>Cloud Token:</label>
-						<input type='text' size=24 maxlength=32 id='auth' value='-'>
+						<input type='text' size=24 maxlength=32 id='auth' name="auth" value='-'>
 					</div>
 				</div>
 
@@ -177,13 +178,22 @@
 
 					<div class="two wide field">
 						<label>Threshold (cm):</label>
-						<input type='text' size=4 maxlength=4 id='dth' value=1>
+						<input type='text' size=4 maxlength=4 id='dth' name="dth" value=1>
 					</div>
 
 					<div class="two wide field">
 						<label>Read Interval (s):</label>
-						<input type='text' size=3 maxlength=3 id='read_interval' value=1>
+						<input type='text' size=3 maxlength=3 id='read_interval' name="read_interval" value=1>
 					</div>
+				</div>
+
+				<div class="three wide field">
+					<label>Sound Alarm:</label>
+					<select name='alarm' id='alarm' name="alarm" class="dropdown">      
+						<option value="0">Disabled</option>
+						<option value="1">5 seconds</option>                  
+						<option value="2">10 seconds</option>      
+					</select>
 				</div>
 
 				<h4 class="ui dividing header">Firmware Update</h4>
@@ -203,7 +213,7 @@
 
 				<p id='msg'></p>
 
-				<button id="options_submit" class="ui button primary" type="submit">Submit</button>
+				<div id="options_submit" class="ui button primary">Submit Changes</div>
 			</form>
 			<script>
 				$(document).ready(function(){
@@ -231,40 +241,29 @@
 
 					// intercept the form sumission
 					$('#options_submit').on('click', function(e){
-						e.preventDefault();
-
-						$("#options_submit").addClass("loading");
+						$(this).addClass("loading");
 
 						if(confirm('Submit changes?')) {
 
 							var options_form = $("#options_form");
-							options_form.on('submit', function(){
-								$("#options_submit").addClass("loading");
+							$(this).addClass("loading");
 
-								// send xhr request
-								$.ajax({
-									type: options_form.attr('method'),
-									url: options_form.attr('action'),
-									data: options_form.serialize(),
-									success: function(config) {
-										if(config.result!=1) {
-											if(config.result==2) show_msg('Check device key and try again.');
-											else show_msg('Error code: '+config.result+', item: '+config.item);
-										} else {
-											$('#msg').html('<font color=green>Options are successfully saved. Note that<br>changes to some options may require a reboot.</font>');
-											$('#options_submit').
-											setTimeout(close, 4000);
-										}
-
-										$("$options_submit").removeClass("loading");
+							// send xhr request
+							$.ajax({
+								type: options_form.attr('method'),
+								url: options_form.attr('action'),
+								data: options_form.serialize(),
+								success: function(config) {
+									if(config.result!=1) {
+										if(config.result==2) show_msg('Check device key and try again.');
+										else show_msg('Error code: '+config.result+', item: '+config.item);
+									} else {
+										show_msg("Options are successfully saved. Note that changes to some options may require a reboot");
 									}
-								});
 
-							// prevent submitting again
-							return false;
-				 
+									$("#options_submit").removeClass("loading");
+								}
 							});
-
 						}
 					});
 				});
@@ -413,7 +412,7 @@
 		</div>
 		<div class="image content">
 			<div class="image">
-				<i class="privacy icon"></i>
+				<i class="lock icon"></i>
 			</div>
 			<form id="auth_form" action="/auth" method="POST" class="ui form">
 				<div class="field">
@@ -421,8 +420,9 @@
 					<input type="text" name="auth_devicekey" id="auth_devicekey" />
 				</div>
 				<div class="field">
-					<i class="login icon"></i>
-					<input type="submit" id="auth_submit" value="Authenticate" class="ui green button right floated" />
+					<div id="auth_submit" class="ui green button right floated">
+						<i class="unlock icon"></i> Authenticate
+					</div>
 				</div>
 			</form>
 		</div>
@@ -431,14 +431,15 @@
 			$(document).ready(function(){
 
 				// intercept form submission
-				var auth_form = $("#auth_form");
-				auth_form.on('submit', function(){
-					$("#auth_submit").addClass("loading");
+				$("#auth_submit").on('click', function(){
+					$(this).addClass("loading");
+
+					auth_form = $("#auth_form");
 
 					// send xhr request
 					$.ajax({
 						type: auth_form.attr('method'),
-						url: auth_form.attr('action'),
+						url:  auth_form.attr('action'),
 						data: auth_form.serialize(),
 						success: function(auth) {
 							if(auth.result == "AUTH_SUCCESS"){
@@ -447,7 +448,7 @@
 								$("#auth_submit").removeClass("loading");
 								$("#login-modal").modal('hide');
 							} else {
-								$("#auth_submit").removeClass("loading");
+								$(this).removeClass("loading");
 								alert("Please try again");
 							}
 						}
@@ -459,7 +460,7 @@
 				});
 
 				if(!getCookie('OG_AUTH')){
-					$("#login-modal").modal('setting','closable',false).modal('show');
+					$("#login-modal").modal('show');//'setting','closable',false).modal('show');
 				}
 
 			});

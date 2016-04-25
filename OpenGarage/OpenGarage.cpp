@@ -161,7 +161,7 @@ void OpenGarage::options_load() {
 void OpenGarage::options_save() {
   DEBUG_PRINT(F("Saving config file "));
   DEBUG_PRINT(config_fname);
-  DEBUG_PRINT(F("..."));
+  DEBUG_PRINTLN(F("..."));
 
   File file = SPIFFS.open(config_fname, "w");
   if(!file) {
@@ -171,11 +171,17 @@ void OpenGarage::options_save() {
 
   OptionStruct *o = options;
   for(byte i=0;i<NUM_OPTIONS;i++,o++) {
+    DEBUG_PRINT("Writing ");
+    DEBUG_PRINT(o->name);
+    DEBUG_PRINT(" : ");
     file.print(o->name + ":");
-    if(o->max)
+    if(o->max){
+      DEBUG_PRINTLN(o->ival);
       file.println(o->ival);
-    else
+    }else{
+      DEBUG_PRINTLN(o->sval);
       file.println(o->sval);
+    }
   }
   DEBUG_PRINTLN(F("ok!"));  
   file.close();

@@ -342,11 +342,11 @@ void on_auth() {
 
 }
 
-void on_sta_change_options() {
-  if(!verify_devicekey()) {
+void on_post_options() {
+  /*if(!verify_devicekey()) {
     server_send_result(HTML_UNAUTHORIZED);
     return;
-  }
+  }*/
   uint ival = 0;
   String sval;
   byte i;
@@ -748,7 +748,7 @@ void do_loop() {
         server->on("/controller", on_controller);
         server->on("/auth", on_auth);
         server->on("/options", HTTP_GET, on_get_options);
-        server->on("/options", HTTP_POST, on_sta_change_options);
+        server->on("/options", HTTP_POST, on_post_options);
         server->on("/update", HTTP_GET, on_get_update);
         server->on("/update", HTTP_POST, on_sta_upload_fin, on_sta_upload);
 
