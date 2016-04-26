@@ -207,6 +207,9 @@ ulong OpenGarage::read_distance_once() {
 uint OpenGarage::read_distance() {
   byte i;
   unsigned long _time = 0;
+
+  set_led(HIGH);
+
   // average three readings to reduce noise
   byte K = 3;
   for(i=0;i<K;i++) {
@@ -215,6 +218,9 @@ uint OpenGarage::read_distance() {
   }
   _time /= K;
   echo_time = _time;
+
+  set_led(LOW);
+
   return (uint)(echo_time*0.01716f);  // 34320 cm / 2 / 10^6 s
 }
 
