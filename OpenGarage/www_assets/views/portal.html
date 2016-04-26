@@ -7,7 +7,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 
 	<!-- Site Properties -->
-	<title>OpenGarage Portal</title>
+	<title>OpenGarage</title>
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/1.11.8/semantic.min.css"/>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/1.11.8/semantic.min.js"></script>
@@ -16,7 +16,7 @@
 <body>
 	<div class="ui top attached menu">
 		<a href="/portal" class="header item">
-			OpenGarage Portal
+			OpenGarage
 		</a>
 		<a href="#" class="active item" data-tab="tab-status">
 			<i class="heartbeat icon"></i> Status
@@ -32,6 +32,8 @@
 		</a>
 	</div>
 
+	<p id="msg"></p>
+
 	<div class="ui segment">
 
 		<div class="ui bottom attached active tab" data-tab="tab-status">
@@ -39,7 +41,7 @@
 
 			<div class="ui buttons">
 				<div id="status-refresh" class="ui button">
-					<i class="refresh icon"></i> Refresh Status
+					<i class="refresh icon"></i>Refresh Status
 				</div>
 
 				<div id="door-button" class="ui button primary">
@@ -48,25 +50,25 @@
 			</div>
 
 			<b>Distance:</b>
-			<label id='lbl_dist'>-</label>
+			<label id="lbl_dist">-</label>
 			
 			<b>Door State:</b>
-			<label id='lbl_status'>-</label>
+			<label id="lbl_status">-</label>
 			
 			<b>Read Count:</b>
-			<label id='lbl_beat'>-</label>     
+			<label id="lbl_beat">-</label>     
 
 
 			<script>
 				$(document).ready(function(){
-					/*$('#btn_rbt').click(function(e){
-						if(confirm('Reboot the device now?')){
-							var comm = 'controller?reboot=1';
+					/*$("#btn_rbt").click(function(e){
+						if(confirm("Reboot the device now?")){
+							var comm = "controller?reboot=1";
 							clear_msg();
 							$.getJSON(comm, function(jd) {
-								if(jd.result!=1) show_msg('Check device key and try again.',2000,'red');
+								if(jd.result!=1) show_msg("Check device key and try again.",2000,"red");
 								else {
-									show_msg('Rebooting. Please wait...',0,'green');
+									show_msg("Rebooting. Please wait...",0,"green");
 									clearInterval(si);
 									setTimeout(function(){location.reload(true);}, 10000);
 								}
@@ -74,12 +76,12 @@
 						}
 					}); */
 
-					$('#door-button').click(function(e) {
-						var comm = 'controller?click=1';
+					$("#door-button").click(function(e) {
+						var comm = "controller?click=1";
 						clear_msg();
 						$.getJSON(comm, function(jd) {
 							if(jd.result!=1) {
-								show_msg('Check device key and try again.',2000,'red');
+								show_msg("Check device key and try again.",2000,"red");
 							}
 						});
 					});
@@ -92,12 +94,12 @@
 
 				function refresh_status() {
 					$("#status-refresh i").addClass("loading");
-					$.getJSON('/json/controller', function(jd) {
-						$('#firmware_version').text('v'+(jd.firmware_version/100>>0)+'.'+(jd.firmware_version/10%10>>0)+'.'+(jd.firmware_version%10>>0));
-						$('#lbl_dist').text(''+jd.dist+' (cm)');
-						$('#lbl_status').text(jd.door?'OPEN':'closed').css('color', jd.door?'red':'black');
-						$('#lbl_beat').text(jd.read_count);
-						$('#head_name').text(jd.name);
+					$.getJSON("/json/controller", function(jd) {
+						$("#firmware_version").text("v"+(jd.firmware_version/100>>0)+"."+(jd.firmware_version/10%10>>0)+"."+(jd.firmware_version%10>>0));
+						$("#lbl_dist").text(""+jd.dist+" (cm)");
+						$("#lbl_status").text(jd.door?"OPEN":"closed").css("color", jd.door?"red":"black");
+						$("#lbl_beat").text(jd.read_count);
+						$("#head_name").text(jd.name);
 
 						$("#status-refresh i").removeClass("loading");
 					});
@@ -113,7 +115,7 @@
 		<div class="ui bottom attached tab" data-tab="tab-options">
 			<h3>Options</h3>
 
-			<div id="options-refresh" class="ui button">
+			<div id="options_refresh" class="ui button">
 				<i class="refresh icon"></i> Refresh Options
 			</div>
 			<form id="options_form" action="/options" method="POST" class="ui form">
@@ -122,23 +124,23 @@
 
 				<div class="fields">
 					<div class="three wide field">
-						<label>Device Name:</label>
-						<input type='text' size=20 maxlength=32 id='name' name="name" value='-'>
+						<label>Device Name</label>
+						<input type="text" size=20 maxlength=32 id="name" name="name" value="-">
 					</div>
 
 					<div class="three wide field">
 						<label>
 						<div class="ui checkbox">
-							<input type='checkbox' id='change_devicekey' name="change_devicekey">
+							<input type="checkbox" id="change_devicekey" name="change_devicekey">
 							<label>Change DeviceKey</label>
 						</div>
 						</label>
-						<input type='password' size=24 maxlength=32 id='new_devicekey' name="new_devicekey" disabled>
+						<input type="password" size=24 maxlength=32 id="new_devicekey" name="new_devicekey" disabled>
 					</div>
 
 					<div class="three wide field">
-						<label>Confirm:</label>
-						<input type='password' size=24 maxlength=32 id='confirm_devicekey' name="confirm_devicekey" disabled>
+						<label>Confirm</label>
+						<input type="password" size=24 maxlength=32 id="confirm_devicekey" name="confirm_devicekey" disabled>
 					</div>
 				</div>
 
@@ -146,8 +148,8 @@
 
 				<div class="fields">
 					<div class="three wide field">
-						<label>Access Type(s):</label>
-						<select name='access_mode' id='access_mode' class="dropdown">
+						<label>Access Type(s)</label>
+						<select name="access_mode" id="access_mode" class="dropdown">
 							<option value=0>Direct IP Only</option>
 							<option value=1>Direct IP + Cloud</option>                  
 							<option value=2>Cloud Only</option>
@@ -155,13 +157,13 @@
 					</div>
 
 					<div class="two wide field">
-						<label>HTTP Port:</label>
-						<input type='text' size=5 maxlength=5 id='http_port' name="http_port" value=1>
+						<label>HTTP Port</label>
+						<input type="text" size=5 maxlength=5 id="http_port" name="http_port" value=1>
 					</div>
 
 					<div class="three wide field">
-						<label>Cloud Token:</label>
-						<input type='text' size=24 maxlength=32 id='auth' name="auth" value='-'>
+						<label>Cloud Token</label>
+						<input type="text" size=24 maxlength=32 id="auth" name="auth" value="-">
 					</div>
 				</div>
 
@@ -169,27 +171,27 @@
 
 				<div class="fields">
 					<div class="three wide field">
-						<label>Mount Type:</label>
-						<select name='mount_type' id='mount_type' class="dropdown">
+						<label>Mount Type</label>
+						<select name="mount_type" id="mount_type" class="dropdown">
 							<option value=0>Ceiling Mount</option>
 							<option value=1>Side Mount</option>
 						</select>
 					</div>
 
 					<div class="two wide field">
-						<label>Threshold (cm):</label>
-						<input type='text' size=4 maxlength=4 id='dth' name="dth" value=1>
+						<label>Threshold (cm)</label>
+						<input type="text" size=4 maxlength=4 id="dth" name="dth" value=1>
 					</div>
 
 					<div class="two wide field">
-						<label>Read Interval (s):</label>
-						<input type='text' size=3 maxlength=3 id='read_interval' name="read_interval" value=1>
+						<label>Read Interval (s)</label>
+						<input type="text" size=3 maxlength=3 id="read_interval" name="read_interval" value=1>
 					</div>
 				</div>
 
 				<div class="three wide field">
-					<label>Sound Alarm:</label>
-					<select name='alarm' id='alarm' name="alarm" class="dropdown">      
+					<label>Sound Alarm</label>
+					<select name="alarm" id="alarm" name="alarm" class="dropdown">      
 						<option value="0">Disabled</option>
 						<option value="1">5 seconds</option>                  
 						<option value="2">10 seconds</option>      
@@ -211,52 +213,50 @@
 
 				<h4 class="ui dividing header">Save Changes</h4>
 
-				<p id='msg'></p>
-
 				<div id="options_submit" class="ui button primary">Submit Changes</div>
 			</form>
 			<script>
 				$(document).ready(function(){
 					// setup log refresh button and load initial data
-					$("#options-refresh").click(function(){
+					$("#options_refresh").click(function(){
 						refresh_options();
 					});
 
-					// enable/disable the change key textboxes when the 'change key'
+					// enable/disable the change key textboxes when the "change key"
 					// checkbox is changed
-					$('#change_devicekey').on('change', function(e){
-						thisStatus = $(this).is(':checked');
-						$('#new_devicekey').prop('disabled', !thisStatus)
-						$('#confirm_devicekey').prop('disabled', !thisStatus);
+					$("#change_devicekey").on("change", function(e){
+						thisStatus = $(this).is(":checked");
+						$("#new_devicekey").prop("disabled", !thisStatus)
+						$("#confirm_devicekey").prop("disabled", !thisStatus);
 					});
 
 					// setup the update input box
-					$('input:text, .ui.button', '.ui.action.input').on('click', function(e){
-							$('input:file', $(e.target).parents()).click();
+					$("input:text, .ui.button", ".ui.action.input").on("click", function(e){
+							$("input:file", $(e.target).parents()).click();
 					});
-					$('input:file', '.ui.action.input').on('change', function(e){
+					$("input:file", ".ui.action.input").on("change", function(e){
 						var name = e.target.files[0].name;
-						$('input:text', $(e.target).parent()).val(name);
+						$("input:text", $(e.target).parent()).val(name);
 					});
 
 					// intercept the form sumission
-					$('#options_submit').on('click', function(e){
+					$("#options_submit").on("click", function(e){
 						$(this).addClass("loading");
 
-						if(confirm('Submit changes?')) {
+						if(confirm("Submit changes?")) {
 
 							var options_form = $("#options_form");
 							$(this).addClass("loading");
 
 							// send xhr request
 							$.ajax({
-								type: options_form.attr('method'),
-								url: options_form.attr('action'),
+								type: options_form.attr("method"),
+								url: options_form.attr("action"),
 								data: options_form.serialize(),
 								success: function(config) {
 									if(config.result!=1) {
-										if(config.result==2) show_msg('Check device key and try again.');
-										else show_msg('Error code: '+config.result+', item: '+config.item);
+										if(config.result==2) show_msg("Check device key and try again.");
+										else show_msg("Error code: "+config.result+", item: "+config.item);
 									} else {
 										show_msg("Options are successfully saved. Note that changes to some options may require a reboot");
 									}
@@ -269,18 +269,20 @@
 				});
 
 				function refresh_options() {
-					$("#options-refresh i").addClass("loading");
-					$.getJSON('/json/options', function(jd) {
-						$('#firmware_version').text('v'+(jd.firmware_version/100>>0)+'.'+(jd.firmware_version/10%10>>0)+'.'+(jd.firmware_version%10>>0));
-						$('#access_mode').val(jd.access_mode);
-						$('#alarm').val(jd.alarm);
-						$('#mount_type').val(jd.mount_type);
-						$('#dth').val(jd.dth);
-						$('#read_interval').val(jd.read_interval);
-						$('#http_port').val(jd.http_port);
-						$('#name').val(jd.name);
-						$('#auth').val(jd.auth);
-						$("#options-refresh i").removeClass("loading");
+					$("#options_form").addClass("loading");
+					$("#options_refresh i").addClass("loading");
+					$.getJSON("/json/options", function(jd) {
+						$("#firmware_version").text("v"+(jd.firmware_version/100>>0)+"."+(jd.firmware_version/10%10>>0)+"."+(jd.firmware_version%10>>0));
+						$("#access_mode").val(jd.access_mode);
+						$("#alarm").val(jd.alarm);
+						$("#mount_type").val(jd.mount_type);
+						$("#dth").val(jd.dth);
+						$("#read_interval").val(jd.read_interval);
+						$("#http_port").val(jd.http_port);
+						$("#name").val(jd.name);
+						$("#auth").val(jd.auth);
+						$("#options_form").removeClass("loading");
+						$("#options_refresh i").removeClass("loading");
 					});
 				}
 			</script>
@@ -317,23 +319,23 @@
 				function refresh_logs() {
 					$("#logs-refresh i").addClass("loading");
 
-					$.getJSON('/json/logs', function(response) {
+					$.getJSON("/json/logs", function(response) {
 						// clear the table contents
-						$('#table-logs').find('tbody tr').remove();
+						$("#table-logs").find("tbody tr").remove();
 
 						var logs=response.logs;
 
 						// quickly sort the logs by timestamp
 						logs.sort(function(a,b){return b["tstamp"]-a["tstamp"];});
 
-						$('#logs-count').text(logs.length);
+						$("#logs-count").text(logs.length);
 
 						var ldate = new Date();
 
 						for(var i=0;i<logs.length;i++) {
 							ldate.setTime(logs[i]["tstamp"]*1000);
-							var r='<tr><td>'+ldate.toLocaleString()+'</td><td>'+(logs[i]["status"]?'OPEN':'closed')+'</td><td>'+logs[i]["dist"]+'</td></tr>';
-							$('#table-logs tbody').append(r);
+							var r="<tr><td>"+ldate.toLocaleString()+"</td><td>"+(logs[i]["status"]?"OPEN":"closed")+"</td><td>"+logs[i]["dist"]+"</td></tr>";
+							$("#table-logs tbody").append(r);
 						}
 
 						$("#logs-refresh i").removeClass("loading");
@@ -347,13 +349,13 @@
 		<div class="ui bottom attached tab" data-tab="tab-update">
 			<h3>Update</h3>
 
-			<form method='POST' action='/update' id='fm' enctype='multipart/form-data' class="ui form">
+			<form method="POST" action="/update" id="fm" enctype="multipart/form-data" class="ui form">
 
 				<div class="fields">
 
 					<div class="five wide inline field">
 						<label>Enter Device Key:</label>
-						<input type='password' size=24 maxlength=32 id='devicekey'>
+						<input type="password" size=24 maxlength=32 id="devicekey">
 					</div>
 
 					<button class="ui button primary" type="submit">Update</button>
@@ -364,33 +366,33 @@
 
 			<script>
 				$(document).ready(function(){
-					$('#btn_submit').click(function(e){
-						var files= id('file').files;
-						if(files.length==0) {show_msg('Please select a file.',2000,'red'); return;}
-						if(id('devicekey').value=='') {
-							if(!confirm('You did not input a device key. Are you sure?')) return;
+					$("#btn_submit").click(function(e){
+						var files= id("file").files;
+						if(files.length==0) {show_msg("Please select a file.",2000,"red"); return;}
+						if(id("devicekey").value=="") {
+							if(!confirm("You did not input a device key. Are you sure?")) return;
 						}
-						var btn = id('btn_submit');
-						show_msg('Uploading. Please wait...',0,'green');
+						var btn = id("btn_submit");
+						show_msg("Uploading. Please wait...",0,"green");
 						var fd = new FormData();
 						var file = files[0];
-						fd.append('file', file, file.name);
-						fd.append('devicekey', id('devicekey').value);
+						fd.append("file", file, file.name);
+						fd.append("devicekey", id("devicekey").value);
 						var xhr = new XMLHttpRequest();
 						xhr.onreadystatechange = function() {
 							if(xhr.readyState==4 && xhr.status==200) {
 								var jd=JSON.parse(xhr.responseText);
 								if(jd.result==1) {
-									show_msg('Update is successful. Rebooting. Please wait...',0,'green');
+									show_msg("Update is successful. Rebooting. Please wait...",0,"green");
 									setTimeout(close, 10000);
 								} else if (jd.result==2) {
-									show_msg('Check device key and try again.', 0, 'red');
+									show_msg("Check device key and try again.", 0, "red");
 								} else {
-									show_msg('Update failed.',0,'red');
+									show_msg("Update failed.",0,"red");
 								}
 							}
 						};
-						xhr.open('POST', 'update', true);
+						xhr.open("POST", "update", true);
 						xhr.send(fd);
 					});
 				});
@@ -431,22 +433,22 @@
 			$(document).ready(function(){
 
 				// intercept form submission
-				$("#auth_submit").on('click', function(){
+				$("#auth_submit").on("click", function(){
 					$(this).addClass("loading");
 
 					auth_form = $("#auth_form");
 
 					// send xhr request
 					$.ajax({
-						type: auth_form.attr('method'),
-						url:  auth_form.attr('action'),
+						type: auth_form.attr("method"),
+						url:  auth_form.attr("action"),
 						data: auth_form.serialize(),
 						success: function(auth) {
 							if(auth.result == "AUTH_SUCCESS"){
-								setCookie('OG_AUTH', auth.token, 0);
+								setCookie("OG_AUTH", auth.token, 0);
 
 								$("#auth_submit").removeClass("loading");
-								$("#login-modal").modal('hide');
+								$("#login-modal").modal("hide");
 							} else {
 								$(this).removeClass("loading");
 								alert("Please try again");
@@ -459,8 +461,8 @@
 		 
 				});
 
-				if(!getCookie('OG_AUTH')){
-					$("#login-modal").modal('show');//'setting','closable',false).modal('show');
+				if(!getCookie("OG_AUTH")){
+					$("#login-modal").modal("show");//"setting","closable",false).modal("show");
 				}
 
 			});
@@ -475,20 +477,20 @@
 		$(".checkbox").checkbox();
 
 		// setup tab behavior on top menu items
-		$('.ui.menu a.item').tab().on('click', function(){
+		$(".ui.menu a.item").tab().on("click", function(){
 			$(this)
-				.addClass('active')
+				.addClass("active")
 				.siblings()
-				.removeClass('active');
+				.removeClass("active");
 		});
 
 	});		
 	function clear_msg() {
-		$('#msg').text('');
+		$("#msg").text("");
 	}  
 
 	function show_msg(s) {
-		$('#msg').text(s).css('color','red');
+		$("#msg").text(s).css("color","red");
 		setTimeout(clear_msg, 2000);
 	}	
 
@@ -498,14 +500,14 @@
 		if(expire_days != 0){
 			var expires = new Date();
 			expires.setTime(expires.getTime() + (expire_days * 24 * 60 * 60 * 1000));
-			document.cookie = key + '=' + value + ';expires=' + expires.toUTCString();
+			document.cookie = key + "=" + value + ";expires=" + expires.toUTCString();
 		} else {
-			document.cookie = key + '=' + value + ';';
+			document.cookie = key + "=" + value + ";";
 		}
 	}
 
 	function getCookie(key) {
-		var keyValue = document.cookie.match('(^|;) ?' + key + '=([^;]*)(;|$)');
+		var keyValue = document.cookie.match("(^|;) ?" + key + "=([^;]*)(;|$)");
 		return keyValue ? keyValue[2] : null;
 	}
 	</script>
