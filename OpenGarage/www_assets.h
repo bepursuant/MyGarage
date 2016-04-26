@@ -60,7 +60,7 @@ cell.innerHTML ="<tr><td><input type='radio' name='ssids' id='rd" + i + "' value
 }
 }
 };
-xhr.open('GET','/networks',true); xhr.send();
+xhr.open('GET','/json/networks',true); xhr.send();
 }
 setTimeout(loadSSIDs, 1000);
 </script>

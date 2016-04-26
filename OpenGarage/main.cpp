@@ -55,6 +55,8 @@ static byte curr_mode;
 // maximum 8 bits
 static byte door_status_hist = 0;
 
+static String token = 0;
+
 // time stuff
 static ulong last_utc = 0;		// stores the last synced UTC time
 static ulong last_ntp = 0;		// stores the last millis() we synced time with ntp
@@ -119,8 +121,10 @@ bool get_value_by_key(const char* key, String& val) {
 
 // convert a decimal byte value into it's char
 char dec2hexchar(byte dec) {
-	if(dec<10) return '0'+dec;
-	else return 'A'+(dec-10);
+	if(dec<10)
+		return '0'+dec;
+	else
+		return 'A'+(dec-10);
 }
 
 // grab the mac address as a decimal and return it as a string
@@ -178,6 +182,19 @@ String get_ip() {
 bool verify_devicekey() {
 	if(server->hasArg("devicekey") && (server->arg("devicekey") == og.options[OPTION_DEVICEKEY].sval))
 		return true;
+}
+
+bool is_authenticated() {
+	if (server.hasHeader("Cookie")){   
+		String cookie = server.header("Cookie");
+		DEBUG_PRINTLN(cookie);
+		if (cookie.indexOf("OG_TOKEN=") != -1) {
+			return true;
+		}
+	}
+
+	server_send_result(HTML_UNAUTHORIZED);
+	return false;
 }
 
 // return the current UTC time based on the millis() since the last sync
@@ -311,24 +328,14 @@ void on_json_status(){
 }
 
 void on_controller() {
-	if(!verify_devicekey()) {
-		server_send_result(HTML_UNAUTHORIZED);
-		return;
-	}
 	if(server->hasArg("click")) {
+		og.click_relay();
 		server_send_result(HTML_SUCCESS);
-		if(!og.options[OPTION_ALARM].ival) {
-			// if alarm is not enabled, trigger relay right away
-			og.click_relay();
-		} else {
-			// else, set alarm
-			og.set_alarm();
-		}
 	}
 	if(server->hasArg("reboot")) {
-		server_send_result(HTML_SUCCESS);
 		restart_timeout = millis() + 1000;
 		og.state = OG_STATE_RESTART;
+		server_send_result(HTML_SUCCESS);
 	}
 }
 
@@ -352,10 +359,6 @@ void on_auth() {
 }
 
 void on_post_options() {
-	/*if(!verify_devicekey()) {
-		server_send_result(HTML_UNAUTHORIZED);
-		return;
-	}*/
 	uint ival = 0;
 	String sval;
 	byte i;
@@ -426,13 +429,12 @@ void on_post_options() {
 	server_send_result(HTML_SUCCESS);
 }
 
-void on_get_networks() {
-	if(curr_mode == OG_MODE_STA) return;
+void on_json_networks() {
 	server_send_json(scanned_ssids);
 }
 
 void on_ap_change_config() {
-	if(curr_mode == OG_MODE_STA) return;
+
 	String html = FPSTR(html_mobile_header);
 	if(server->hasArg("ssid")) {
 		og.options[OPTION_SSID].sval = server->arg("ssid");
@@ -449,7 +451,6 @@ void on_ap_change_config() {
 }
 
 void on_ap_try_connect() {
-	if(curr_mode == OG_MODE_STA) return;
 
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
@@ -470,33 +471,6 @@ void on_ap_try_connect() {
 		restart_timeout = millis() + 2000;
 		og.state = OG_STATE_RESTART;
 	}
-}
-
-void do_setup()
-{
-	DEBUG_BEGIN(115200);
-
-	DEBUG_PRINT(F("Setting time server..."));
-	configTime(0, 0, "pool.ntp.org", "time.nist.org", NULL);
-	DEBUG_PRINTLN(F("ok!"));
-
-	if(server) {
-		delete server;
-		server = NULL;
-	}
-	og.begin();
-	og.options_setup();
-	curr_cloud_access_en = og.get_cloud_access_en();
-	curr_local_access_en = og.get_local_access_en();
-	curr_mode = og.get_mode();
-	if(!server) {
-		DEBUG_PRINT(F("Starting server on port "));
-		DEBUG_PRINT(og.options[OPTION_HTTP_PORT].ival);
-		DEBUG_PRINT("...");
-		server = new ESP8266WebServer(og.options[OPTION_HTTP_PORT].ival);
-		DEBUG_PRINTLN("ok!");
-	}
-	led_blink_ms = LED_FAST_BLINK;
 }
 
 void process_ui()
@@ -604,6 +578,33 @@ void on_sta_upload() {
 }
 
 
+// time keeping routine - the ESP module provides a millis() function 
+// for general relative timekeeping, but we also want to know the
+// basic UTC time... so lets maintain the UTC time in a var 
+void time_keeping() {
+	// if we haven't synced yet, or if we've gone too long without syncing,
+	// lets synchronise time with the NTP server that we already set up.
+	if(!last_utc || millis() > last_ntp + (TIME_SYNC_TIMEOUT * 1000) ) {
+
+		ulong gt = time(nullptr);
+
+		if(gt){
+			last_utc = gt;
+			last_ntp = millis();
+
+			int drift = gt - curr_utc_time();
+
+			DEBUG_PRINT(F("Synchronized time to "));
+			DEBUG_PRINT(gt);
+			DEBUG_PRINT(" (drifted ");
+			DEBUG_PRINT(drift);
+			DEBUG_PRINTLN("s)...ok!");
+		} 
+
+	}
+
+}
+
 // check the status of the door based on the sensor type
 void check_status() {
 
@@ -659,167 +660,172 @@ void check_status() {
 	}
 }
 
+void do_setup()
+{
+	DEBUG_BEGIN(115200);
 
-// time keeping routine - the ESP module provides a millis() function 
-// for general relative timekeeping, but we also want to know the
-// basic UTC time... so lets maintain the UTC time in a var 
-void time_keeping() {
-	// if we haven't synced yet, or if we've gone too long without syncing,
-	// lets synchronise time with the NTP server that we already set up.
-	if(!last_utc || millis() > last_ntp + (TIME_SYNC_TIMEOUT * 1000) ) {
+  DEBUG_PRINTLN("");
+	DEBUG_PRINT(F("Setting time server..."));
+	configTime(0, 0, "pool.ntp.org", "time.nist.org", NULL);
+	DEBUG_PRINTLN(F("ok!"));
 
-		ulong gt = time(nullptr);
-
-		if(gt){
-			last_utc = gt;
-			last_ntp = millis();
-
-			DEBUG_PRINT(F("Synchronized to network time:"));
-			DEBUG_PRINT(gt);
-			DEBUG_PRINTLN("...ok!");
-		} 
-
+	if(server) {
+		delete server;
+		server = NULL;
 	}
 
-}
+	og.begin();
+	og.options_setup();
+	curr_cloud_access_en = og.get_cloud_access_en();
+	curr_local_access_en = og.get_local_access_en();
 
-void process_alarm() {
-	if(!og.alarm) return;
-	static ulong prev_half_sec = 0;
-	ulong curr_half_sec = millis()/500;
-	if(curr_half_sec != prev_half_sec) {  
-		prev_half_sec = curr_half_sec;
-		if(prev_half_sec % 2 == 0) {
-			og.play_note(ALARM_FREQ);
-		} else {
-			og.play_note(0);
-		}
-		og.alarm--;
-		if(og.alarm==0) {
-			og.play_note(0);
-			og.click_relay();
-		}
+	curr_mode = og.get_mode();
+
+	if(!server) {
+		DEBUG_PRINT(F("Starting server on port "));
+		DEBUG_PRINT(og.options[OPTION_HTTP_PORT].ival);
+		DEBUG_PRINT("...");
+
+		server = new ESP8266WebServer(og.options[OPTION_HTTP_PORT].ival);
+
+		// routes for AP mode
+		server->on("/",   on_get_index);    
+		server->on("/json/networks", on_json_networks);
+		server->on("/cc", on_ap_change_config);
+		server->on("/jt", on_ap_try_connect);
+
+		// routes for STA mode
+		server->on("/logs", on_get_logs);
+		server->on("/portal", on_get_portal);
+		//server->on("/status", on_get_status);
+		server->on("/controller", on_controller);
+		server->on("/auth", on_auth);
+		server->on("/options", HTTP_GET, on_get_options);
+		server->on("/options", HTTP_POST, on_post_options);
+		server->on("/update", HTTP_GET, on_get_update);
+		server->on("/update", HTTP_POST, on_sta_upload_fin, on_sta_upload);
+
+		// define all of the json data providers / API urls
+		server->on("/json/logs", on_json_logs);
+		server->on("/json/status", on_json_status);
+		server->on("/json/controller", on_json_controller);
+		server->on("/json/options", on_json_options);
+
+		server->begin();
+		DEBUG_PRINTLN("ok!");
 	}
+
 }
 
 void do_loop() {
 	static ulong connecting_timeout;
 	
 	switch(og.state) {
-	case OG_STATE_INITIAL:
-		if(curr_mode == OG_MODE_AP) {
+
+		case OG_STATE_INITIAL:
+
 			scanned_ssids = scan_network();
-			String ap_ssid = get_ap_ssid();
-			start_network_ap(ap_ssid.c_str(), NULL);
-			server->on("/",   on_get_index);    
-			server->on("/networks", on_get_networks);
-			server->on("/cc", on_ap_change_config);
-			server->on("/jt", on_ap_try_connect);
-			server->begin();
-			og.state = OG_STATE_CONNECTED;
-			DEBUG_PRINT("IP Address: ");
-			DEBUG_PRINTLN(WiFi.softAPIP());
-		} else {
+
+			if(curr_mode == OG_MODE_AP) {
+
+				// startup AP mode if we need configuration
+				String ap_ssid = get_ap_ssid();
+				start_network_ap(ap_ssid.c_str(), NULL);
+
+				DEBUG_PRINT("IP Address: ");
+				DEBUG_PRINTLN(WiFi.softAPIP());
+
+				og.state = OG_STATE_CONNECTED;
+
+			} else {
+
+				// otherwise startup STA mode to connect to the router
+				led_blink_ms = LED_SLOW_BLINK;
+				start_network_sta(og.options[OPTION_SSID].sval.c_str(), og.options[OPTION_PASS].sval.c_str());
+				connecting_timeout = millis() + 60000;
+
+				og.state = OG_STATE_CONNECTING;
+
+			}
+			break;
+
+
+		case OG_STATE_TRY_CONNECT:
 			led_blink_ms = LED_SLOW_BLINK;
-			start_network_sta(og.options[OPTION_SSID].sval.c_str(), og.options[OPTION_PASS].sval.c_str());
-			og.state = OG_STATE_CONNECTING;
-			connecting_timeout = millis() + 60000;
-		}
-		break;
-	case OG_STATE_TRY_CONNECT:
-		led_blink_ms = LED_SLOW_BLINK;
-		start_network_sta_with_ap(og.options[OPTION_SSID].sval.c_str(), og.options[OPTION_PASS].sval.c_str());    
-		og.state = OG_STATE_CONNECTED;
-		break;
-		
-	case OG_STATE_CONNECTING:
-		if(WiFi.status() == WL_CONNECTED) {
-			if(curr_local_access_en) {
-				// use ap ssid as mdns name
-				if(MDNS.begin(get_ap_ssid().c_str())) {
-					DEBUG_PRINT(F("Registered MDNS as "));
-					DEBUG_PRINTLN(get_ap_ssid().c_str());
+			start_network_sta_with_ap(og.options[OPTION_SSID].sval.c_str(), og.options[OPTION_PASS].sval.c_str());    
+			og.state = OG_STATE_CONNECTED;
+			break;
+			
+		case OG_STATE_CONNECTING:
+			if(WiFi.status() == WL_CONNECTED) {
+				if(curr_local_access_en) {
+					// use ap ssid as mdns name
+					if(MDNS.begin(get_ap_ssid().c_str())) {
+						DEBUG_PRINT(F("Registered MDNS as "));
+						DEBUG_PRINTLN(get_ap_ssid().c_str());
+					}
+
 				}
 
-				server->on("/", on_get_index);
-				server->on("/logs", on_get_logs);
-				server->on("/portal", on_get_portal);
-				//server->on("/status", on_get_status);
-				server->on("/controller", on_controller);
-				server->on("/auth", on_auth);
-				server->on("/options", HTTP_GET, on_get_options);
-				server->on("/options", HTTP_POST, on_post_options);
-				server->on("/update", HTTP_GET, on_get_update);
-				server->on("/update", HTTP_POST, on_sta_upload_fin, on_sta_upload);
+				#ifdef EN_BLYNK
+				if(curr_cloud_access_en) {
+					Blynk.begin(og.options[OPTION_AUTH].sval.c_str());
+					Blynk.connect();
+				}
+				#endif
 
-				// define all of the json data providers / API urls
-				server->on("/json/logs", on_json_logs);
-				server->on("/json/status", on_json_status);
-				server->on("/json/controller", on_json_controller);
-				server->on("/json/options", on_json_options);
+				og.state = OG_STATE_CONNECTED;
+				led_blink_ms = 0;
+				og.set_led(LOW);
+				
+				DEBUG_PRINT(F("Connected to "));
+				DEBUG_PRINT(WiFi.SSID());
+				DEBUG_PRINT(F(" as "));
+				DEBUG_PRINTLN(WiFi.localIP());
 
-				server->begin();
+			} else {
+				delay(500);
+				DEBUG_PRINT(".");
+				if(millis() > connecting_timeout) {
+					og.state = OG_STATE_INITIAL;
+					DEBUG_PRINTLN(F("timeout"));
+				}
 			}
+			break;
+		
+		case OG_STATE_CONNECTED:
+			if(curr_local_access_en)
+				server->handleClient();
 			#ifdef EN_BLYNK
-			if(curr_cloud_access_en) {
-				Blynk.begin(og.options[OPTION_AUTH].sval.c_str());
-				Blynk.connect();
-			}
+			if(curr_cloud_access_en)
+				Blynk.run();
 			#endif
-			og.state = OG_STATE_CONNECTED;
-			led_blink_ms = 0;
-			og.set_led(LOW);
+			break;
 			
-			DEBUG_PRINT(F("Connected to "));
-			DEBUG_PRINT(WiFi.SSID());
-			DEBUG_PRINT(F(" as "));
-			DEBUG_PRINTLN(WiFi.localIP());
-		} else {
-			delay(500);
-			DEBUG_PRINT(".");
-			if(millis() > connecting_timeout) {
+		case OG_STATE_RESTART:
+			if(curr_local_access_en)
+				server->handleClient();
+			if(millis() > restart_timeout) {
 				og.state = OG_STATE_INITIAL;
-				DEBUG_PRINTLN(F("timeout"));
+				og.restart();
 			}
-		}
-		break;
-	
-	case OG_STATE_CONNECTED:
-		if(curr_local_access_en)
-			server->handleClient();
-		#ifdef EN_BLYNK
-		if(curr_cloud_access_en)
-			Blynk.run();
-		#endif
-		break;
-		
-	case OG_STATE_RESTART:
-		if(curr_local_access_en)
-			server->handleClient();
-		if(millis() > restart_timeout) {
+			break;
+			
+		case OG_STATE_RESET:
 			og.state = OG_STATE_INITIAL;
-			og.restart();
-		}
-		break;
-		
-	case OG_STATE_RESET:
-		og.state = OG_STATE_INITIAL;
-		DEBUG_PRINTLN(F("reset"));
-		og.options_reset();
-		og.log_reset();
-		restart_timeout = millis() + 1000;
-		og.state = OG_STATE_RESTART;
-		break;
+			DEBUG_PRINTLN(F("reset"));
+			og.options_reset();
+			og.log_reset();
+			restart_timeout = millis() + 1000;
+			og.state = OG_STATE_RESTART;
+			break;
 	
 	}
 	
-	if(og.state == OG_STATE_CONNECTED && curr_mode == OG_MODE_STA) {
-		time_keeping();
-		check_status();
-	}
+	time_keeping();
+	check_status();
 	process_ui();
-	if(og.alarm)
-		process_alarm();
+	process_alarm();
 }
 
 #ifdef EN_BLYNK

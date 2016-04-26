@@ -51,10 +51,6 @@
 #define OG_MOUNT_TYPE_CEILING  0x00
 #define OG_MOUNT_TYPE_SIDE     0x01
 
-#define OG_ALARM_NONE     0x00
-#define OG_ALARM_5        0x01
-#define OG_ALARM_10       0x02
-
 #define OG_MODE_AP       0xA9
 #define OG_MODE_STA      0x2A
 
@@ -72,7 +68,6 @@
 #define BLYNK_PIN_READ_COUNT  V4
 
 #define MAX_LOG_RECORDS    100
-#define ALARM_FREQ         1000
 // door status histogram
 // number of values (maximum is 8)
 #define DOOR_STATUS_HIST_K  4
@@ -83,20 +78,19 @@
 #define DOOR_STATUS_MIXED         4
 
 typedef enum {
-  OPTION_FIRMWARE_VERSION = 0, // firmware version
-  OPTION_ACCESS_MODE,     // accessbility
-  OPTION_MOUNT_TYPE,     // mount type
-  OPTION_DTH,     // distance threshold
-  OPTION_RIV,     // read interval
-  OPTION_ALARM,     // alarm mode
-  OPTION_HTTP_PORT,     // http port
-  OPTION_MOD,     // mode
-  OPTION_SSID,    // wifi ssid
-  OPTION_PASS,    // wifi password
-  OPTION_AUTH,    // authentication token
-  OPTION_DEVICEKEY,    // device key
-  OPTION_NAME,    // device name
-  NUM_OPTIONS     // number of options
+	OPTION_FIRMWARE_VERSION = 0, // firmware version
+	OPTION_ACCESS_MODE,	// accessbility
+	OPTION_MOUNT_TYPE,	// mount type
+	OPTION_DTH,					// distance threshold
+	OPTION_RIV,					// read interval
+	OPTION_HTTP_PORT,		// http port
+	OPTION_MOD,					// mode
+	OPTION_SSID,				// wifi ssid
+	OPTION_PASS,				// wifi password
+	OPTION_AUTH,				// authentication token
+	OPTION_DEVICEKEY,		// device key
+	OPTION_NAME,				// device name
+	NUM_OPTIONS					// number of options
 } OG_OPTION_enum;
 
 #define BUTTON_RESET_TIMEOUT  4000  // if button is pressed for at least 5 seconds, reset
@@ -109,15 +103,15 @@ typedef enum {
 #define SERIAL_DEBUG
 #if defined(SERIAL_DEBUG)
 
-  #define DEBUG_BEGIN(x)   { delay(2000); Serial.begin(x); }
-  #define DEBUG_PRINT(x)   Serial.print(x)
-  #define DEBUG_PRINTLN(x) Serial.println(x)
+	#define DEBUG_BEGIN(x)   { delay(2000); Serial.begin(x); }
+	#define DEBUG_PRINT(x)   Serial.print(x)
+	#define DEBUG_PRINTLN(x) Serial.println(x)
 
 #else
 
-  #define DEBUG_BEGIN(x)   {}
-  #define DEBUG_PRINT(x)   {}
-  #define DEBUG_PRINTLN(x) {}
+	#define DEBUG_BEGIN(x)   {}
+	#define DEBUG_PRINT(x)   {}
+	#define DEBUG_PRINTLN(x) {}
 
 #endif
 

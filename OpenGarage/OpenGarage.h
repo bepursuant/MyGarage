@@ -64,6 +64,8 @@ public:
     delay(ms);
     digitalWrite(PIN_RELAY, LOW);
   }
+  static void open();
+  static void close();
   static int find_option(String name);
   static void log_reset();
   static void write_log(const LogStruct& data);
