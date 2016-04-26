@@ -21,6 +21,8 @@
  */
 
 #include "OpenGarage.h"
+#include "pitches.h"
+
 
 ulong OpenGarage::echo_time;
 byte  OpenGarage::state = OG_STATE_INITIAL;
@@ -51,7 +53,6 @@ OptionStruct OpenGarage::options[] = {
 };
     
 void OpenGarage::begin() {
-  DEBUG_PRINTLN("");
   DEBUG_PRINT("Configuring GPIO...");
   digitalWrite(PIN_RESET, HIGH);  // reset button
   pinMode(PIN_RESET, OUTPUT);
@@ -85,11 +86,10 @@ void OpenGarage::begin() {
 }
 
 void OpenGarage::options_setup() {
-  int i;
   if(!SPIFFS.exists(config_fname)) { // if config file does not exist
-    DEBUG_PRINT("Saving default config to SPIFFS...");
+    DEBUG_PRINT(F("Saving default config to SPIFFS..."));
     options_save(); // save default option values
-    DEBUG_PRINTLN("ok!");
+    DEBUG_PRINTLN(F("ok!"));
     return;
   }
   options_load();
@@ -154,8 +154,9 @@ void OpenGarage::options_load() {
       options[idx].sval = sval;
     }
   }
-  DEBUG_PRINTLN(F("ok!"));
   file.close();
+
+  DEBUG_PRINTLN(F("ok!"));
 }
 
 void OpenGarage::options_save() {
@@ -171,20 +172,16 @@ void OpenGarage::options_save() {
 
   OptionStruct *o = options;
   for(byte i=0;i<NUM_OPTIONS;i++,o++) {
-    DEBUG_PRINT("Writing ");
-    DEBUG_PRINT(o->name);
-    DEBUG_PRINT(" : ");
     file.print(o->name + ":");
     if(o->max){
-      DEBUG_PRINTLN(o->ival);
       file.println(o->ival);
     }else{
-      DEBUG_PRINTLN(o->sval);
       file.println(o->sval);
     }
   }
-  DEBUG_PRINTLN(F("ok!"));  
   file.close();
+
+  DEBUG_PRINTLN(F("ok!"));  
 }
 
 // read the distance from an ir distance sensor
@@ -196,6 +193,7 @@ ulong OpenGarage::read_distance_once() {
   digitalWrite(PIN_TRIG, HIGH);
   delayMicroseconds(10);
   digitalWrite(PIN_TRIG, LOW);
+  
   // wait till echo pin's rising edge
   while(digitalRead(PIN_ECHO)==LOW);
   unsigned long start_time = micros();
@@ -315,8 +313,6 @@ void OpenGarage::play_note(uint freq) {
   }
 }
 
-#include "pitches.h"
-
 void OpenGarage::play_startup_tune() {
   static uint melody[] = {NOTE_C4, NOTE_E4, NOTE_G4, NOTE_C5};
   static byte duration[] = {4, 8, 8, 8};
@@ -328,4 +324,12 @@ void OpenGarage::play_startup_tune() {
     play_note(0);
     delay(delaytime * 0.2);    // add 30% pause between notes
   }
+}
+
+bool OpenGarage::open(){
+  click_relay();
+}
+
+bool OpenGarage::close(){
+  click_relay();
 }
