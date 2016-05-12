@@ -49,14 +49,9 @@ void start_network_ap(const char *ssid, const char *pass);
 void start_network_sta(const char *ssid, const char *pass);
 void start_network_sta_with_ap(const char *ssid, const char *pass);
 
-extern const char html_mobile_header[] PROGMEM;
-extern const char html_jquery_header[] PROGMEM;
+uint curr_utc_time();
+
 extern const char html_ap_home[] PROGMEM;
-extern const char html_ap_try_connect[] PROGMEM;
-extern const char html_sta_home[] PROGMEM;
-extern const char html_sta_options[] PROGMEM;
-extern const char html_sta_update[] PROGMEM;
-extern const char html_sta_logs[] PROGMEM;
 extern const char html_portal[] PROGMEM;
 
 #endif

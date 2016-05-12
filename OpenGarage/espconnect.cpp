@@ -23,13 +23,6 @@
 #include "espconnect.h"
 #include "www_assets.h"
 
-// R is a C++ literal for raw string
-const char html_mobile_header[] PROGMEM = R"(<head><meta name='viewport' content='width=device-width,initial-scale=1.0,minimum-scale=1.0,user-scalable=no'><title>OpenGarage</title><style>body{font-family:'helvetica';}</style></head>)";
-
-const char html_jquery_header[] PROGMEM = "<head><title>OpenGarage</title><meta name='viewport' content='width=device-width, initial-scale=1'><link rel='stylesheet' href='http://code.jquery.com/mobile/1.3.1/jquery.mobile-1.3.1.min.css' type='text/css'><script src='http://code.jquery.com/jquery-1.9.1.min.js' type='text/javascript'></script><script src='http://code.jquery.com/mobile/1.3.1/jquery.mobile-1.3.1.min.js' type='text/javascript'></script></head>";
-
-const char html_ap_redirect[] PROGMEM = "<h3>WiFi config saved. Now switching to station mode.</h3>";
-
 String scan_network() {
   DEBUG_PRINT(F("Scanning available networks..."));
 
@@ -56,7 +49,7 @@ String scan_network() {
     network["isHidden"] = WiFi.isHidden(i);
   }
 
-  root["server_time"] = millis();
+  root["time"] = curr_utc_time();
 
   String retJson;
   root.printTo(retJson);
