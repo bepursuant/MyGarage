@@ -6,7 +6,6 @@
 	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 
-	<!-- Site Properties -->
 	<title>OpenGarage</title>
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/1.11.8/semantic.min.css"/>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
@@ -15,7 +14,7 @@
 </head>
 <body>
 	<div class="ui top attached menu">
-		<a href="/portal" class="header item">
+		<a href="/" class="header item">
 			OpenGarage
 		</a>
 		<a href="#" class="active item" data-tab="tab-status">
@@ -49,8 +48,8 @@
 				</div>
 			</div>
 
-			<b>Distance:</b>
-			<label id="lbl_dist">-</label>
+			<b>Reading:</b>
+			<label id="lbl_value">-</label>
 			
 			<b>Door State:</b>
 			<label id="lbl_status">-</label>
@@ -96,7 +95,7 @@
 					$("#status-refresh i").addClass("loading");
 					$.getJSON("/json/controller", function(jd) {
 						$("#firmware_version").text("v"+(jd.firmware_version/100>>0)+"."+(jd.firmware_version/10%10>>0)+"."+(jd.firmware_version%10>>0));
-						$("#lbl_dist").text(""+jd.dist+" (cm)");
+						$("#lbl_value").text(""+jd.value+" (cm)");
 						$("#lbl_status").text(jd.door?"OPEN":"closed").css("color", jd.door?"red":"black");
 						$("#lbl_beat").text(jd.read_count);
 						$("#head_name").text(jd.name);
@@ -128,6 +127,14 @@
 						<input type="text" size=20 maxlength=32 id="name" name="name" value="-">
 					</div>
 
+
+					<div class="three wide field">
+						<label>HTTP Port</label>
+						<input type="text" size=5 maxlength=5 id="http_port" name="http_port" value=1>
+					</div>
+				</div>
+
+				<div class="fields">
 					<div class="three wide field">
 						<label>
 						<div class="ui checkbox">
@@ -141,29 +148,6 @@
 					<div class="three wide field">
 						<label>Confirm</label>
 						<input type="password" size=24 maxlength=32 id="confirm_devicekey" name="confirm_devicekey" disabled>
-					</div>
-				</div>
-
-				<h4 class="ui dividing header">Accessibility Settings</h4>
-
-				<div class="fields">
-					<div class="three wide field">
-						<label>Access Type(s)</label>
-						<select name="access_mode" id="access_mode" class="dropdown">
-							<option value=0>Direct IP Only</option>
-							<option value=1>Direct IP + Cloud</option>                  
-							<option value=2>Cloud Only</option>
-						</select>
-					</div>
-
-					<div class="two wide field">
-						<label>HTTP Port</label>
-						<input type="text" size=5 maxlength=5 id="http_port" name="http_port" value=1>
-					</div>
-
-					<div class="three wide field">
-						<label>Cloud Token</label>
-						<input type="text" size=24 maxlength=32 id="auth" name="auth" value="-">
 					</div>
 				</div>
 
@@ -187,15 +171,6 @@
 						<label>Read Interval (s)</label>
 						<input type="text" size=3 maxlength=3 id="read_interval" name="read_interval" value=1>
 					</div>
-				</div>
-
-				<div class="three wide field">
-					<label>Sound Alarm</label>
-					<select name="alarm" id="alarm" name="alarm" class="dropdown">      
-						<option value="0">Disabled</option>
-						<option value="1">5 seconds</option>                  
-						<option value="2">10 seconds</option>      
-					</select>
 				</div>
 
 				<h4 class="ui dividing header">Firmware Update</h4>
@@ -273,8 +248,6 @@
 					$("#options_refresh i").addClass("loading");
 					$.getJSON("/json/options", function(jd) {
 						$("#firmware_version").text("v"+(jd.firmware_version/100>>0)+"."+(jd.firmware_version/10%10>>0)+"."+(jd.firmware_version%10>>0));
-						$("#access_mode").val(jd.access_mode);
-						$("#alarm").val(jd.alarm);
 						$("#mount_type").val(jd.mount_type);
 						$("#dth").val(jd.dth);
 						$("#read_interval").val(jd.read_interval);
@@ -334,7 +307,7 @@
 
 						for(var i=0;i<logs.length;i++) {
 							ldate.setTime(logs[i]["tstamp"]*1000);
-							var r="<tr><td>"+ldate.toLocaleString()+"</td><td>"+(logs[i]["status"]?"OPEN":"closed")+"</td><td>"+logs[i]["dist"]+"</td></tr>";
+							var r="<tr><td>"+ldate.toLocaleString()+"</td><td>"+(logs[i]["status"]?"OPEN":"closed")+"</td><td>"+logs[i]["value"]+"</td></tr>";
 							$("#table-logs tbody").append(r);
 						}
 
