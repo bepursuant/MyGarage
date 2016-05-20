@@ -21,13 +21,11 @@
  */
 
 #include "OpenGarage.h"
-#include "pitches.h"
-
 
 ulong OpenGarage::echo_time;
 byte  OpenGarage::state = OG_STATE_INITIAL;
 File  OpenGarage::log_file;
-byte  OpenGarage::alarm = 0;
+uint OpenGarage::current_log_id;
 
 static const char* config_fname = CONFIG_FNAME;
 static const char* log_fname = LOG_FNAME;
@@ -37,17 +35,14 @@ static const char* log_fname = LOG_FNAME;
  * String options don't have integer or max value
  */
 OptionStruct OpenGarage::options[] = {
-  {"firmware_version", OG_FIRMWARE_VERSION,      255, ""},
-  {"access_mode", OG_ACCESS_MODE_LOCAL,  2, ""},
-  {"mount_type", OG_MOUNT_TYPE_CEILING,1, ""},
-  {"dth", 50,        65535, ""},
-  {"read_interval", 4,           300, ""},
-  {"alarm", OG_ALARM_5,      2, ""},
-  {"http_port", 80,        65535, ""},
-  {"mode", OG_MODE_AP,   255, ""},
+  {"firmware_version", OG_FIRMWARE_VERSION, 255, ""},
+  {"sensor_type", OG_SENSOR_ULTRASONIC_CEILING, 2, ""},
+  {"dth", 50, 65535, ""},
+  {"read_interval", 4, 300, ""},
+  {"http_port", 80, 65535, ""},
+  {"mode", OG_MODE_AP, 255, ""},
   {"ssid", 0, 0, ""},  // string options have 0 max value
   {"pass", 0, 0, ""},
-  {"auth", 0, 0, ""},
   {"devicekey", 0, 0, DEFAULT_DEVICEKEY},
   {"name", 0, 0, DEFAULT_NAME}
 };
@@ -56,9 +51,6 @@ void OpenGarage::begin() {
   DEBUG_PRINT("Configuring GPIO...");
   digitalWrite(PIN_RESET, HIGH);  // reset button
   pinMode(PIN_RESET, OUTPUT);
-  
-  digitalWrite(PIN_BUZZER, LOW);  // speaker/buzzer
-  pinMode(PIN_BUZZER, OUTPUT);
   
   digitalWrite(PIN_RELAY, LOW);   // relay
   pinMode(PIN_RELAY, OUTPUT);
@@ -70,7 +62,7 @@ void OpenGarage::begin() {
   pinMode(PIN_TRIG, OUTPUT);
   
   pinMode(PIN_ECHO, INPUT);       // echo
-  pinMode(PIN_BUTTON, INPUT_PULLUP);
+  pinMode(PIN_CLOSED, INPUT_PULLUP); //closed sensor
   DEBUG_PRINTLN("ok!");
   
   state = OG_STATE_INITIAL;
@@ -81,8 +73,7 @@ void OpenGarage::begin() {
   } else {
     DEBUG_PRINTLN("ok!");
   }
-  
-  play_startup_tune();
+
 }
 
 void OpenGarage::options_setup() {
@@ -162,7 +153,7 @@ void OpenGarage::options_load() {
 void OpenGarage::options_save() {
   DEBUG_PRINT(F("Saving config file "));
   DEBUG_PRINT(config_fname);
-  DEBUG_PRINTLN(F("..."));
+  DEBUG_PRINT(F("..."));
 
   File file = SPIFFS.open(config_fname, "w");
   if(!file) {
@@ -184,101 +175,76 @@ void OpenGarage::options_save() {
   DEBUG_PRINTLN(F("ok!"));  
 }
 
-// read the distance from an ir distance sensor
-// to determine the position of the door and
-// whether a car is present at the time
-ulong OpenGarage::read_distance_once() {
+
+uint OpenGarage::read_distance() {
+  ulong distance, duration;
+
   digitalWrite(PIN_TRIG, LOW);
   delayMicroseconds(2);
   digitalWrite(PIN_TRIG, HIGH);
   delayMicroseconds(10);
   digitalWrite(PIN_TRIG, LOW);
   
-  // wait till echo pin's rising edge
-  while(digitalRead(PIN_ECHO)==LOW);
-  unsigned long start_time = micros();
-  // wait till echo pin's falling edge
-  while(digitalRead(PIN_ECHO)==HIGH);
-  return micros() - start_time;  
-}
+  duration = pulseIn(PIN_ECHO, HIGH, 10000);
+  distance = (duration/2) / 29.1;  
 
-uint OpenGarage::read_distance() {
-  byte i;
-  unsigned long _time = 0;
-
-  set_led(HIGH);
-
-  // average three readings to reduce noise
-  byte K = 3;
-  for(i=0;i<K;i++) {
-    _time += read_distance_once();
-    delay(50);
-  }
-  _time /= K;
-  echo_time = _time;
-
-  set_led(LOW);
-
-  return (uint)(echo_time*0.01716f);  // 34320 cm / 2 / 10^6 s
-}
-
-bool OpenGarage::get_cloud_access_en() {
-  if(options[OPTION_ACCESS_MODE].ival == OG_ACCESS_MODE_CLOUD ||
-     options[OPTION_ACCESS_MODE].ival == OG_ACCESS_MODE_BOTH) {
-    if(options[OPTION_AUTH].sval.length()==32) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool OpenGarage::get_local_access_en() {
-  if(options[OPTION_ACCESS_MODE].ival == OG_ACCESS_MODE_LOCAL ||
-     options[OPTION_ACCESS_MODE].ival == OG_ACCESS_MODE_BOTH)
-     return true;
-  return false;
+  return (uint)distance;
 }
 
 void OpenGarage::write_log(const LogStruct& data) {
-  DEBUG_PRINT(F("Saving log data..."));  
+  DEBUG_PRINT(F("Saving log data..."));
 
   File file;
-  uint curr = 0;
 
-  if(!SPIFFS.exists(log_fname)) {  // create log file
+  if(!SPIFFS.exists(log_fname)) {
 
+    // create a new log file, because one doesnt exist
     file = SPIFFS.open(log_fname, "w");
+
     if(!file) {
       DEBUG_PRINTLN(F("failed to create log file!"));
       return;
     }
 
-    // fill log file
-    uint next = curr+1;
-    file.write((const byte*)&next, sizeof(next));
+    file.write((const byte*)&current_log_id, sizeof(current_log_id));
     file.write((const byte*)&data, sizeof(LogStruct));
+
+    // and fill the rest of the file with blank (numbered) records
     LogStruct l;
     l.tstamp = 0;
-    for(;next<MAX_LOG_RECORDS;next++) {
+    for(uint next=current_log_id;next<MAX_LOG_RECORDS;next++) {
       file.write((const byte*)&l, sizeof(LogStruct));
     }
+
   } else {
+    // open the logfile for read +
     file = SPIFFS.open(log_fname, "r+");
+
+    // if it doesn't open, toss a wobbly
     if(!file) {
       DEBUG_PRINTLN(F("failed to open log file!"));
       return;
     }
-    file.readBytes((char*)&curr, sizeof(curr));
-    uint next = (curr+1) % MAX_LOG_RECORDS;
+
+    // the first byte of the file is the current record ID, lets get it
+    file.readBytes((char*)&current_log_id, sizeof(current_log_id));
+
+    // create the next record ID by adding 1 and wrapping at MAX_LOG_RECORDS
+    uint next = (current_log_id+1) % MAX_LOG_RECORDS;
+
+    // seek to the beginning of the file
     file.seek(0, SeekSet);
+    // write the newest record ID
     file.write((const byte*)&next, sizeof(next));
 
-    file.seek(sizeof(curr)+curr*sizeof(LogStruct), SeekSet);
+    // then navigate to this record's rightful position by calculating it's spot.
+    // [size of current record ID] + ([current record ID] * [size per record])
+    // and write this record as bytes for the length of a single log record
+    file.seek(sizeof(current_log_id)+(current_log_id*sizeof(LogStruct)), SeekSet);
     file.write((const byte*)&data, sizeof(LogStruct));
   }
 
   file.close();
-
   DEBUG_PRINTLN(F("ok!"));      
 }
 
@@ -286,9 +252,15 @@ bool OpenGarage::read_log_start() {
   if(log_file) log_file.close();
   log_file = SPIFFS.open(log_fname, "r");
   if(!log_file) return false;
-  uint curr;
-  if(log_file.readBytes((char*)&curr, sizeof(curr)) != sizeof(curr)) return false;
-  if(curr>=MAX_LOG_RECORDS) return false;
+  if(log_file.readBytes((char*)&current_log_id, sizeof(current_log_id)) != sizeof(current_log_id)) return false;
+  if(current_log_id>=MAX_LOG_RECORDS) return false;
+  return true;
+}
+
+bool OpenGarage::read_log(LogStruct& data, uint rec){
+  if(!log_file) return false;
+  log_file.seek(sizeof(current_log_id)+(rec*sizeof(LogStruct)), SeekSet);
+  if(log_file.readBytes((char*)&data, sizeof(LogStruct)) != sizeof(LogStruct)) return false;
   return true;
 }
 
@@ -302,28 +274,6 @@ bool OpenGarage::read_log_end() {
   if(!log_file) return false;
   log_file.close();
   return true;
-}
-
-void OpenGarage::play_note(uint freq) {
-  if(freq>0) {
-    analogWrite(PIN_BUZZER, 512);
-    analogWriteFreq(freq);
-  } else {
-    analogWrite(PIN_BUZZER, 0);
-  }
-}
-
-void OpenGarage::play_startup_tune() {
-  static uint melody[] = {NOTE_C4, NOTE_E4, NOTE_G4, NOTE_C5};
-  static byte duration[] = {4, 8, 8, 8};
-  
-  for (byte i = 0; i < sizeof(melody)/sizeof(uint); i++) {
-    uint delaytime = 1000/duration[i];
-    play_note(melody[i]);
-    delay(delaytime);
-    play_note(0);
-    delay(delaytime * 0.2);    // add 30% pause between notes
-  }
 }
 
 bool OpenGarage::open(){

@@ -92,14 +92,11 @@ OpenGarage
 <a href="#" class="active item" data-tab="tab-status">
 <i class="heartbeat icon"></i> Status
 </a>
-<a href="#/logs" class="item" data-tab="tab-logs">
-<i class="history icon"></i> Logs
+<a href="#" class="item" data-tab="tab-log">
+<i class="list icon"></i> Logs
 </a>
 <a href="#/options" class="item" data-tab="tab-options">
 <i class="options icon"></i> Options
-</a>
-<a href="#/about" class="item right" data-tab="tab-about">
-<i class="info icon"></i> About
 </a>
 </div>
 
@@ -110,28 +107,27 @@ OpenGarage
 <div class="ui bottom attached active tab" data-tab="tab-status">
 <h3>Status</h3>
 
-<div class="ui buttons">
-<div id="status-refresh" class="ui button">
-<i class="refresh icon"></i>Refresh Status
+<div id="status-refresh" class="ui button right">
+<i class="refresh icon"></i>
+Refresh Status
 </div>
 
-<div id="door-button" class="ui button primary">
-<i class="grid layout icon"></i> Door Button
+<div id="current-status" class="ui block header message">
+<i class="lock icon"></i>
+<div class="ui content">Door is <b id="lbl_status"></b>
+<div class="sub header"><b id="lbl_time"></b></div>
 </div>
 </div>
 
-<b>Distance:</b>
-<label id="lbl_dist">-</label>
-			
-<b>Door State:</b>
-<label id="lbl_status">-</label>
-			
-<b>Read Count:</b>
-<label id="lbl_beat">-</label>     
+<div id="door-button" class="ui massive button primary fluid">
+Toggle
+</div>
 
+<div id="door-history"></div>
 
 <script>
 $(document).ready(function(){
+
 /*$("#btn_rbt").click(function(e){
 if(confirm("Reboot the device now?")){
 var comm = "controller?reboot=1";
@@ -148,13 +144,23 @@ setTimeout(function(){location.reload(true);}, 10000);
 }); */
 
 $("#door-button").click(function(e) {
+$("#door-button").addClass('loading');
+$("#door-button i").removeClass('warning');
+
 var comm = "controller?click=1";
 clear_msg();
+
 $.getJSON(comm, function(jd) {
 if(jd.result!=1) {
+$("#door-button").removeClass('loading');
+$("#door-button i").addClass('warning');
+
 show_msg("Check device key and try again.",2000,"red");
+} else {
+$("#door-button").removeClass('loading');
 }
 });
+
 });
 
 $("#status-refresh").click(function(){
@@ -165,15 +171,42 @@ refresh_status();
 
 function refresh_status() {
 $("#status-refresh i").addClass("loading");
-$.getJSON("/json/controller", function(jd) {
-$("#firmware_version").text("v"+(jd.firmware_version/100>>0)+"."+(jd.firmware_version/10%10>>0)+"."+(jd.firmware_version%10>>0));
-$("#lbl_dist").text(""+jd.dist+" (cm)");
-$("#lbl_status").text(jd.door?"OPEN":"closed").css("color", jd.door?"red":"black");
-$("#lbl_beat").text(jd.read_count);
-$("#head_name").text(jd.name);
+
+$.getJSON("/json/status", function(response) {
+
+var door_status = response.status.door_status==1 ? "OPEN" : "CLOSED";
+
+$("#lbl_status").text(door_status);
+
+$("#current-status i").removeClass("lock unlock").addClass(door_status=="OPEN"?"unlock":"lock");
+
+$("#door-button").text(door_status=="OPEN"?"Close Door":"Open Door");
+
+update_time = new Date(1000*response.status.last_status_change);
+$("#lbl_time").text(update_time.toLocaleString());
+});
+
+$.getJSON("/json/logs", function(response) {
+// clear the table contents
+$("#door-history").html("");
+
+var logs=response.logs;
+
+// quickly sort the logs by timestamp
+logs.sort(function(a,b){return b["tstamp"]-a["tstamp"];});
+
+var ldate = new Date();
+
+for(var i=0;i<logs.length;i++) {
+ldate.setTime(logs[i]["tstamp"]*1000);
+
+var r = "<div class=\"ui block header message attached "+(logs[i]["status"]?"red":"green")+"\"><i class=\""+(logs[i]["status"]?"unlock":"lock")+" icon\"></i><div class=\"ui content\">Door "+(logs[i]["status"]?"opened":"closed")+"<div class=\"sub header\">"+ldate.toLocaleString()+"</div></div></div>"
+
+$("#door-history").append(r);
+}
+});
 
 $("#status-refresh i").removeClass("loading");
-});
 }
 
 </script>
@@ -227,10 +260,11 @@ $("#status-refresh i").removeClass("loading");
 
 <div class="fields">
 <div class="three wide field">
-<label>Mount Type</label>
-<select name="mount_type" id="mount_type" class="dropdown">
-<option value=0>Ceiling Mount</option>
-<option value=1>Side Mount</option>
+<label>Sensor Type</label>
+<select name="sensor_type" id="sensor_type" class="dropdown">
+<option value=0>Ultrasonic - Ceiling Mount</option>
+<option value=1>Ultrasonic - Side Mount</option>
+<option value=2>Magnetic - Closed Sensor</option>
 </select>
 </div>
 
@@ -320,7 +354,7 @@ $("#options_form").addClass("loading");
 $("#options_refresh i").addClass("loading");
 $.getJSON("/json/options", function(jd) {
 $("#firmware_version").text("v"+(jd.firmware_version/100>>0)+"."+(jd.firmware_version/10%10>>0)+"."+(jd.firmware_version%10>>0));
-$("#mount_type").val(jd.mount_type);
+$("#sensor_type").val(jd.sensor_type);
 $("#dth").val(jd.dth);
 $("#read_interval").val(jd.read_interval);
 $("#http_port").val(jd.http_port);
@@ -333,63 +367,6 @@ $("#options_refresh i").removeClass("loading");
 </script>
 
 </div>
-
-
-<div class="ui bottom attached tab" data-tab="tab-logs">
-<h3>Logs</h3>
-<div id="logs-refresh" class="ui button">
-<i class="refresh icon"></i> Refresh Logs
-</div>
-<table id="table-logs" class="ui table">
-<thead>
-<tr>
-<th>Time Stamp</th>
-<th>Status</th>
-<th>D (cm)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td colspan="3">No Logs Loaded</td>
-</tr>
-</tbody>
-</table>
-<script>
-$(document).ready(function(){
-// setup log refresh button and load initial data
-$("#logs-refresh").click(function(){
-refresh_logs();
-});
-});
-function refresh_logs() {
-$("#logs-refresh i").addClass("loading");
-
-$.getJSON("/json/logs", function(response) {
-// clear the table contents
-$("#table-logs").find("tbody tr").remove();
-
-var logs=response.logs;
-
-// quickly sort the logs by timestamp
-logs.sort(function(a,b){return b["tstamp"]-a["tstamp"];});
-
-$("#logs-count").text(logs.length);
-
-var ldate = new Date();
-
-for(var i=0;i<logs.length;i++) {
-ldate.setTime(logs[i]["tstamp"]*1000);
-var r="<tr><td>"+ldate.toLocaleString()+"</td><td>"+(logs[i]["status"]?"OPEN":"closed")+"</td><td>"+logs[i]["dist"]+"</td></tr>";
-$("#table-logs tbody").append(r);
-}
-
-$("#logs-refresh i").removeClass("loading");
-
-});
-}
-</script>
-</div>
-
 
 <div class="ui bottom attached tab" data-tab="tab-update">
 <h3>Update</h3>
@@ -518,7 +495,7 @@ $("#login-modal").modal("show");//"setting","closable",false).modal("show");
 
 <script>
 $(document).ready(function() {
-$("select.dropdown").dropdown();
+//$("select.dropdown").dropdown();
 $(".checkbox").checkbox();
 
 // setup tab behavior on top menu items
@@ -531,12 +508,13 @@ $(this)
 
 });		
 function clear_msg() {
-$("#msg").text("");
+$("#msg").html("");
 }  
 
-function show_msg(s) {
-$("#msg").text(s).css("color","red");
-setTimeout(clear_msg, 2000);
+function show_msg(msg_text, msg_class="", msg_timeout=10000) {
+var message = "<div class=\"ui message "+msg_class+"\">"+msg_text+"</div>";
+$("#msg").html(message);
+setTimeout(clear_msg, msg_timeout);
 }	
 
 function id(s) {return document.getElementById(s);}

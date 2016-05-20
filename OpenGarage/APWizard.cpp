@@ -20,7 +20,7 @@
  * <http://www.gnu.org/licenses/>.
  */
  
-#include "espconnect.h"
+#include "APWizard.h"
 #include "www_assets.h"
 
 String scan_network() {

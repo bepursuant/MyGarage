@@ -27,13 +27,13 @@
 #define OG_FIRMWARE_VERSION    100   // Firmware version: 100 means 1.0.0
 
 /** GPIO pins */
-#define PIN_RELAY  D1
-#define PIN_BUTTON D2
-#define PIN_TRIG   D3
+#define PIN_TRIG   D1
 #define PIN_ECHO   D4
-#define PIN_LED    D5
-#define PIN_RESET  D6
-#define PIN_BUZZER D7
+#define PIN_RELAY  D5
+#define PIN_BUTTON D0
+#define PIN_LED    D6
+#define PIN_CLOSED D7
+#define PIN_RESET  D8
 
 // Default device name
 #define DEFAULT_NAME    "My OpenGarage"
@@ -44,12 +44,9 @@
 // Log file name
 #define LOG_FNAME       "/log.dat"
 
-#define OG_ACCESS_MODE_LOCAL    0x00
-#define OG_ACCESS_MODE_BOTH     0x01
-#define OG_ACCESS_MODE_CLOUD    0x02
-
-#define OG_MOUNT_TYPE_CEILING  0x00
-#define OG_MOUNT_TYPE_SIDE     0x01
+#define OG_SENSOR_ULTRASONIC_CEILING  0
+#define OG_SENSOR_ULTRASONIC_SIDE     1
+#define OG_SENSOR_MAGNETIC_CLOSED	  2
 
 #define OG_MODE_AP       0xA9
 #define OG_MODE_STA      0x2A
@@ -60,12 +57,6 @@
 #define OG_STATE_TRY_CONNECT    3
 #define OG_STATE_RESET          9
 #define OG_STATE_RESTART        10
-
-#define BLYNK_PIN_LED         V0
-#define BLYNK_PIN_RELAY       V1
-#define BLYNK_PIN_LCD         V2
-#define BLYNK_PIN_DIST        V3
-#define BLYNK_PIN_READ_COUNT  V4
 
 #define MAX_LOG_RECORDS    100
 // door status histogram
@@ -79,16 +70,14 @@
 
 typedef enum {
 	OPTION_FIRMWARE_VERSION = 0, // firmware version
-	OPTION_ACCESS_MODE,	// accessbility
-	OPTION_MOUNT_TYPE,	// mount type
+	OPTION_SENSOR_TYPE,			// sensor type
 	OPTION_DTH,					// distance threshold
 	OPTION_RIV,					// read interval
-	OPTION_HTTP_PORT,		// http port
+	OPTION_HTTP_PORT,			// http port
 	OPTION_MOD,					// mode
 	OPTION_SSID,				// wifi ssid
 	OPTION_PASS,				// wifi password
-	OPTION_AUTH,				// authentication token
-	OPTION_DEVICEKEY,		// device key
+	OPTION_DEVICEKEY,			// device key
 	OPTION_NAME,				// device name
 	NUM_OPTIONS					// number of options
 } OG_OPTION_enum;
