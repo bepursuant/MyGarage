@@ -20,8 +20,8 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _ESP_CONNECT_H
-#define _ESP_CONNECT_H
+#ifndef _AP_WIZARD_H
+#define _AP_WIZARD_H
 
 #define HTML_OK                0x00
 #define HTML_SUCCESS           0x01
@@ -53,5 +53,4 @@ uint curr_utc_time();
 
 extern const char html_ap_home[] PROGMEM;
 extern const char html_portal[] PROGMEM;
-
 #endif

@@ -28,7 +28,6 @@
 #include <WiFiUdp.h>
 #include <time.h>
 #include <FS.h>
-#include <BlynkSimpleEsp8266.h>
 #include <OpenGarage.h>
 
 void do_setup();

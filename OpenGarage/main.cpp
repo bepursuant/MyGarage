@@ -19,35 +19,22 @@
  * along with this program.  If not, see
  * <http://www.gnu.org/licenses/>.
  */
-
-
-#define EN_BLYNK    //uncomment to enable blynk support
-
 #include "OpenGarage.h"
-#include "espconnect.h"
+#include "APWizard.h"
+
+#include <Client.h>
+#include "lib/SMTPClient/SmtpClient.h";
+#include "lib/SMTPClient/Mail.h";
+ 
 #include <ArduinoJson.h>
-
-#ifdef EN_BLYNK
-	#ifdef SERIAL_DEBUG
-		#define BLYNK_DEBUG
-		#define BLYNK_PRINT Serial
-	#endif
-
-	#include <BlynkSimpleEsp8266.h>
-	BlynkWifi Blynk(_blynkTransport);
-	WidgetLED blynk_led(BLYNK_PIN_LED);
-	WidgetLCD blynk_lcd(BLYNK_PIN_LCD);
-#endif
 
 OpenGarage og;
 ESP8266WebServer *server = NULL;
 
 static String scanned_ssids;
 static byte read_count = 0;
-static uint distance = 0;
+static uint read_value = 0;
 static byte door_status = 0;
-static bool curr_cloud_access_en = false;
-static bool curr_local_access_en = false;
 static uint led_blink_ms = LED_FAST_BLINK;
 static ulong restart_timeout = 0;
 static byte curr_mode;
@@ -55,27 +42,24 @@ static byte curr_mode;
 // maximum 8 bits
 static byte door_status_hist = 0;
 
-static String token = 0;
+static String token = "";
 
 // time stuff
 static ulong last_utc = 0;		// stores the last synced UTC time
 static ulong last_ntp = 0;		// stores the last millis() we synced time with ntp
-static ulong last_status = 0;	// stores the last millis() we checked the door status
+static ulong last_status_check = 0;	// stores the last millis() we checked the door status
+static ulong last_status_change = 0;// stores the last utc the status changed
 
 
 void do_setup();
 
 
-// Define some helper functions below for interacting with the 
-// server, such as sending an html or json response headers
-// and content to the browser.
-void server_send_html(String html) {
-	server->send(200, "text/html", html);
-}
+// Define a few helper functions below for interacting with the 
+// server object, like sending html or json response headers
+// and content to the connected client, or rendering text
+void server_send_html(String html) { server->send(200, "text/html", html); }
 
-void server_send_json(String json){
-	server->send(200, "text/json", json);
-}
+void server_send_json(String json){ server->send(200, "text/json", json); }
 
 void server_send_json(JsonObject root){
 	String retJson;
@@ -185,10 +169,10 @@ bool verify_devicekey() {
 }
 
 bool is_authenticated() {
-	if (server.hasHeader("Cookie")){   
-		String cookie = server.header("Cookie");
+	if (server->hasHeader("Cookie")){   
+		String cookie = server->header("Cookie");
 		DEBUG_PRINTLN(cookie);
-		if (cookie.indexOf("OG_TOKEN=") != -1) {
+		if (cookie.indexOf("OG_TOKEN=" + token) != -1) {
 			return true;
 		}
 	}
@@ -197,7 +181,9 @@ bool is_authenticated() {
 	return false;
 }
 
-// return the current UTC time based on the millis() since the last sync
+// Return the current UTC time based on the millis() since the last sync
+// The exact current time is derived as a unix timestamp by taking...
+// [the last timestamp we synced] + [the time since the last sync]
 uint curr_utc_time(){
 	return last_utc + (millis() - last_ntp)/1000;
 }
@@ -208,25 +194,11 @@ void on_get_index()
 	String html = "";
 	
 	if(curr_mode == OG_MODE_AP) {
-		html += FPSTR(html_mobile_header); 
 		html += FPSTR(html_ap_home);
 	} else {
-		html += FPSTR(html_jquery_header);
-		html += FPSTR(html_sta_home);
+		html += FPSTR(html_portal);
 	}
 
-	server_send_html(html);
-}
-
-void on_get_options() {
-	String html = FPSTR(html_jquery_header);
-	html += FPSTR(html_sta_options);
-	server_send_html(html);
-}
-
-void on_get_logs() {
-	String html = FPSTR(html_jquery_header);
-	html += FPSTR(html_sta_logs);
 	server_send_html(html);
 }
 
@@ -235,15 +207,18 @@ void on_get_portal() {
 	server_send_html(html);
 }
 
+
 void on_json_controller() {
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 
-	root["dist"] = distance;
-	root["door"] = door_status;
+	root["read_value"] = read_value;
+	root["door_status"] = door_status;
+	root["last_status_change"] = last_status_change;
 	root["read_count"] = read_count;
 	root["firmware_version"] = og.options[OPTION_FIRMWARE_VERSION].ival;
 	root["name"] = og.options[OPTION_NAME].sval;
+	root["sensor_type"] = og.options[OPTION_SENSOR_TYPE].ival;
 	root["mac"] = get_mac();
 	root["cid"] = ESP.getChipId();
 	
@@ -263,21 +238,19 @@ void on_json_logs() {
 	JsonArray& logs = root.createNestedArray("logs");
  
 	LogStruct l;
-	for(uint i=0;i<MAX_LOG_RECORDS;i++) {
-		if(!og.read_log_next(l)) break;
-		if(!l.tstamp) continue;
+	uint curr;
+	if(!og.read_log_start()) return;
+	for(uint i=0;i<og.current_log_id;i++) {
+		if(!og.read_log(l,i)) continue;
+		//if(!l.tstamp) continue;
 
 		JsonObject& log = logs.createNestedObject();
 		log["tstamp"] = l.tstamp;
 		log["status"] = l.status;
-		log["dist"] = l.dist;
+		log["read_value"] = l.value;
 	}
-	og.read_log_end();
 
-		JsonObject& log = logs.createNestedObject();
-		log["tstamp"] = "1234566";
-		log["status"] = 1;
-		log["dist"] = 12.34;
+	og.read_log_end();
 
 	String retJson;
 	root.printTo(retJson);
@@ -293,9 +266,7 @@ void on_json_options() {
 
 	for(byte i=0;i<NUM_OPTIONS;i++,o++) {
 		if(!o->max) {
-			if(i==OPTION_NAME || i==OPTION_AUTH) {  // only output selected string options
-				root[o->name] = o->sval;
-			}
+			root[o->name] = o->sval;
 		} else {  // if this is a int option
 			root[o->name] = o->ival;
 		}
@@ -311,15 +282,19 @@ void on_json_status(){
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 
-	root["distance"] = distance;
-	root["status"] = door_status;
-	root["reads"] = read_count;
-	root["firmware_version"] = og.options[OPTION_FIRMWARE_VERSION].ival;
-	root["name"] = og.options[OPTION_NAME].sval;
-	root["mac"] = get_mac();
-	root["heap"] = ESP.getFreeHeap();
-	root["chipId"] = ESP.getChipId();
-	root["time"] = curr_utc_time();
+	JsonObject& status = root.createNestedObject("status");
+
+
+	status["read_value"] = read_value;
+	status["door_status"] = door_status;
+	status["last_status_change"] = last_status_change;
+	status["read_count"] = read_count;
+	status["firmware_version"] = og.options[OPTION_FIRMWARE_VERSION].ival;
+	status["name"] = og.options[OPTION_NAME].sval;
+	status["mac"] = get_mac();
+	status["heap"] = ESP.getFreeHeap();
+	status["chipId"] = ESP.getChipId();
+	status["curr_utc_time"] = curr_utc_time();
 
 	String retJson;
 	root.printTo(retJson);
@@ -345,8 +320,10 @@ void on_auth() {
 	JsonObject& root = jsonBuffer.createObject();
 
 	if(server->hasArg("auth_devicekey") && (server->arg("auth_devicekey") == og.options[OPTION_DEVICEKEY].sval)){
+		token = server->arg("auth_devicekey");
+
 		root["result"] = "AUTH_SUCCESS";
-		root["token"] = "TOKEN";
+		root["token"] = token;
 	} else {
 		root["result"] = "AUTH_FAILURE";
 	}
@@ -434,12 +411,9 @@ void on_json_networks() {
 }
 
 void on_ap_change_config() {
-
-	String html = FPSTR(html_mobile_header);
 	if(server->hasArg("ssid")) {
 		og.options[OPTION_SSID].sval = server->arg("ssid");
 		og.options[OPTION_PASS].sval = server->arg("pass");
-		og.options[OPTION_AUTH].sval = server->arg("auth");
 		if(og.options[OPTION_SSID].sval.length() == 0) {
 			server_send_result(HTML_DATA_MISSING, "ssid");
 			return;
@@ -464,9 +438,6 @@ void on_ap_try_connect() {
 
 	if(WiFi.status() == WL_CONNECTED && WiFi.localIP()) {
 		og.options[OPTION_MOD].ival = OG_MODE_STA;
-		if(og.options[OPTION_AUTH].sval.length() == 32) {
-			og.options[OPTION_ACCESS_MODE].ival = OG_ACCESS_MODE_BOTH;
-		}
 		og.options_save();  
 		restart_timeout = millis() + 2000;
 		og.state = OG_STATE_RESTART;
@@ -525,17 +496,12 @@ byte check_door_status_hist() {
 	return DOOR_STATUS_MIXED;
 }
 
-void on_get_update() {
-	String html = FPSTR(html_jquery_header); 
-	html += FPSTR(html_sta_update);
-	server_send_html(html);
-}
 
 void on_sta_upload_fin() {
 
 	if(!verify_devicekey()) {
 		server_send_result(HTML_UNAUTHORIZED);
-		Update.reset();
+		//Update.reset();
 	}
 
 	// finish update and check error
@@ -574,7 +540,7 @@ void on_sta_upload() {
 		Update.end();
 		DEBUG_PRINTLN(F("upload aborted"));
 	}
-	delay(0);    
+	delay(0); 
 }
 
 
@@ -594,11 +560,11 @@ void time_keeping() {
 
 			int drift = gt - curr_utc_time();
 
-			DEBUG_PRINT(F("Synchronized time to "));
+			DEBUG_PRINT(F("Synchronized time using NTP. Current unix timestamp is "));
 			DEBUG_PRINT(gt);
-			DEBUG_PRINT(" (drifted ");
+			DEBUG_PRINT("(drifted ");
 			DEBUG_PRINT(drift);
-			DEBUG_PRINTLN("s)...ok!");
+			DEBUG_PRINTLN("s).");
 		} 
 
 	}
@@ -608,63 +574,89 @@ void time_keeping() {
 // check the status of the door based on the sensor type
 void check_status() {
 
-	if(millis() > last_status + (og.options[OPTION_RIV].ival * 100000)) {
+	switch(og.options[OPTION_SENSOR_TYPE].ival){
 
-		// read the distance from the sensor - let og do this because
-		// it will actually give us the average of three reads
-		distance = og.read_distance();
+		case OG_SENSOR_ULTRASONIC_SIDE:
+		case OG_SENSOR_ULTRASONIC_CEILING:
+			// check the door status using an ultrasonic distance sensor
 
-		//not sure what this is really for...
-		read_count = (read_count+1)%100;
+			DEBUG_PRINT("Reading Distance...");
+			// read the distance from the sensor - let og do this because
+			// it will actually give us the average of three reads
+			read_value = og.read_distance();
+			DEBUG_PRINT("got ");
+			DEBUG_PRINT(read_value);
+			DEBUG_PRINTLN("cm...ok!");
 
-		// determine based on the current reading if the door is open or closed
-		door_status = (distance > og.options[OPTION_DTH].ival) ? 0 : 1;
+			//not sure what this is really for...
+			read_count = (read_count+1)%100;
 
-		// reverse logic for side mount
-		if (og.options[OPTION_MOUNT_TYPE].ival == OG_MOUNT_TYPE_SIDE)    
-			door_status = 1-door_status;
+			// determine based on the current reading if the door is open or closed
+			door_status = (read_value > og.options[OPTION_DTH].ival) ? 0 : 1;
 
-		// tack this status onto the histogram and find out what 'just happened'
-		door_status_hist = (door_status_hist<<1) | door_status;
-		byte event = check_door_status_hist();
-
-		// write log record
-		if(event == DOOR_STATUS_JUST_OPENED || event == DOOR_STATUS_JUST_CLOSED) {
-			LogStruct l;
-			l.tstamp = curr_utc_time();
-			l.status = door_status;
-			l.dist = distance;
-			og.write_log(l);
-		}
+			// reverse logic for side mount
+			if (og.options[OPTION_SENSOR_TYPE].ival == OG_SENSOR_ULTRASONIC_SIDE)    
+				door_status = 1-door_status;
 		
-		#ifdef EN_BLYNK
-		if(curr_cloud_access_en && Blynk.connected()) {
-			Blynk.virtualWrite(BLYNK_PIN_READ_COUNT, read_count);
-			Blynk.virtualWrite(BLYNK_PIN_DIST, distance);
-			(door_status) ? blynk_led.on() : blynk_led.off();
-			blynk_lcd.print(0, 0, get_ip());
-			String str = ":";
-			str += og.options[OPTION_HTTP_PORT].ival;
-			str += " " + get_ap_ssid();
-			blynk_lcd.print(0, 1, str);
-			if(event == DOOR_STATUS_JUST_OPENED) {
-				Blynk.notify(og.options[OPTION_NAME].sval + " just OPENED!");
-			} else if(event == DOOR_STATUS_JUST_CLOSED) {
-				Blynk.notify(og.options[OPTION_NAME].sval + " just closed!");
-			}
-		}
-		#endif
+		break;
 
-		last_status = millis();
+		case OG_SENSOR_MAGNETIC_CLOSED:
+			// check the door status using a single magentic sensor in the closed position
+			DEBUG_PRINT("Checking open sensor...");
+			
+			read_value = door_status = digitalRead(PIN_CLOSED);
+
+			//not sure what this is really for...
+			read_count = (read_count+1)%100;
+
+			DEBUG_PRINT("got ");
+			DEBUG_PRINT(door_status);
+			DEBUG_PRINTLN("...ok!");
+
+		break;
+	}
+
+	// tack this status onto the histogram and find out what 'just happened'
+	door_status_hist = (door_status_hist<<1) | door_status;
+	byte event = check_door_status_hist();
+
+	// write log record
+	if(event == DOOR_STATUS_JUST_OPENED || event == DOOR_STATUS_JUST_CLOSED) {
+		LogStruct l;
+		l.tstamp = curr_utc_time();
+		l.status = door_status;
+		l.value = read_value;
+		og.write_log(l);
+
+		last_status_change = curr_utc_time();
+
+		DEBUG_PRINT("Sending email...");
+
+		byte ip[] = { 192, 168, 0, 125 };
+		WiFiClient mailClient;
+		SmtpClient client(&mailClient, ip);
+
+		Mail mail;
+		mail.from("Some Sender <sender@example.com>");
+		mail.to("Kevin Klika <kevin.klika@gmail.com>");
+		if(event == DOOR_STATUS_JUST_OPENED)
+			mail.subject("Door just opened!");
+		else
+			mail.subject("Door just closed!");
+		
+		mail.body((char*)door_status);
+		client.send(&mail);
+
 
 	}
+	
+	last_status_check = millis();
 }
 
 void do_setup()
 {
 	DEBUG_BEGIN(115200);
-
-  DEBUG_PRINTLN("");
+	DEBUG_PRINTLN("");
 	DEBUG_PRINT(F("Setting time server..."));
 	configTime(0, 0, "pool.ntp.org", "time.nist.org", NULL);
 	DEBUG_PRINTLN(F("ok!"));
@@ -676,8 +668,6 @@ void do_setup()
 
 	og.begin();
 	og.options_setup();
-	curr_cloud_access_en = og.get_cloud_access_en();
-	curr_local_access_en = og.get_local_access_en();
 
 	curr_mode = og.get_mode();
 
@@ -695,14 +685,11 @@ void do_setup()
 		server->on("/jt", on_ap_try_connect);
 
 		// routes for STA mode
-		server->on("/logs", on_get_logs);
-		server->on("/portal", on_get_portal);
 		//server->on("/status", on_get_status);
 		server->on("/controller", on_controller);
+		server->on("/portal", on_get_portal);
 		server->on("/auth", on_auth);
-		server->on("/options", HTTP_GET, on_get_options);
 		server->on("/options", HTTP_POST, on_post_options);
-		server->on("/update", HTTP_GET, on_get_update);
 		server->on("/update", HTTP_POST, on_sta_upload_fin, on_sta_upload);
 
 		// define all of the json data providers / API urls
@@ -723,11 +710,9 @@ void do_loop() {
 	switch(og.state) {
 
 		case OG_STATE_INITIAL:
-
 			scanned_ssids = scan_network();
 
 			if(curr_mode == OG_MODE_AP) {
-
 				// startup AP mode if we need configuration
 				String ap_ssid = get_ap_ssid();
 				start_network_ap(ap_ssid.c_str(), NULL);
@@ -738,7 +723,6 @@ void do_loop() {
 				og.state = OG_STATE_CONNECTED;
 
 			} else {
-
 				// otherwise startup STA mode to connect to the router
 				led_blink_ms = LED_SLOW_BLINK;
 				start_network_sta(og.options[OPTION_SSID].sval.c_str(), og.options[OPTION_PASS].sval.c_str());
@@ -758,21 +742,11 @@ void do_loop() {
 			
 		case OG_STATE_CONNECTING:
 			if(WiFi.status() == WL_CONNECTED) {
-				if(curr_local_access_en) {
-					// use ap ssid as mdns name
-					if(MDNS.begin(get_ap_ssid().c_str())) {
-						DEBUG_PRINT(F("Registered MDNS as "));
-						DEBUG_PRINTLN(get_ap_ssid().c_str());
-					}
-
+				// use ap ssid as mdns name
+				if(MDNS.begin(get_ap_ssid().c_str())) {
+					DEBUG_PRINT(F("Registered MDNS as "));
+					DEBUG_PRINTLN(get_ap_ssid().c_str());
 				}
-
-				#ifdef EN_BLYNK
-				if(curr_cloud_access_en) {
-					Blynk.begin(og.options[OPTION_AUTH].sval.c_str());
-					Blynk.connect();
-				}
-				#endif
 
 				og.state = OG_STATE_CONNECTED;
 				led_blink_ms = 0;
@@ -782,6 +756,8 @@ void do_loop() {
 				DEBUG_PRINT(WiFi.SSID());
 				DEBUG_PRINT(F(" as "));
 				DEBUG_PRINTLN(WiFi.localIP());
+
+				og.state = OG_STATE_CONNECTED;
 
 			} else {
 				delay(500);
@@ -794,17 +770,12 @@ void do_loop() {
 			break;
 		
 		case OG_STATE_CONNECTED:
-			if(curr_local_access_en)
-				server->handleClient();
-			#ifdef EN_BLYNK
-			if(curr_cloud_access_en)
-				Blynk.run();
-			#endif
+			server->handleClient();
 			break;
 			
 		case OG_STATE_RESTART:
-			if(curr_local_access_en)
-				server->handleClient();
+			server->handleClient();
+			
 			if(millis() > restart_timeout) {
 				og.state = OG_STATE_INITIAL;
 				og.restart();
@@ -819,30 +790,13 @@ void do_loop() {
 			restart_timeout = millis() + 1000;
 			og.state = OG_STATE_RESTART;
 			break;
-	
 	}
 	
 	time_keeping();
-	check_status();
-	process_ui();
-	process_alarm();
-}
 
-#ifdef EN_BLYNK
-BLYNK_WRITE(V1)
-{
-	if(!og.options[OPTION_ALARM].ival) {
-		// if alarm is disabled, trigger right away
-		if(param.asInt()) {
-			og.set_relay(HIGH);
-		} else {
-			og.set_relay(LOW);
-		}
-	} else {
-		// otherwise, set alarm
-		if(param.asInt()) {
-			og.set_alarm();
-		}  
+	if(millis() > last_status_check + (og.options[OPTION_RIV].ival * 1000)) {
+		check_status();
 	}
+
+	process_ui();
 }
-#endif
