@@ -19,12 +19,13 @@
  * along with this program.  If not, see
  * <http://www.gnu.org/licenses/>.
  */
+#include "Logging.h"
+#define LOGLEVEL LOGLEVEL_VERBOSE
+
 #include "OpenGarage.h"
 #include "APWizard.h"
 
-#include <Client.h>
-#include "lib/SMTPClient/SmtpClient.h";
-#include "lib/SMTPClient/Mail.h";
+#include "SMTPMailer.h"
  
 #include <ArduinoJson.h>
 
@@ -49,6 +50,9 @@ static ulong last_utc = 0;		// stores the last synced UTC time
 static ulong last_ntp = 0;		// stores the last millis() we synced time with ntp
 static ulong last_status_check = 0;	// stores the last millis() we checked the door status
 static ulong last_status_change = 0;// stores the last utc the status changed
+
+
+SMTPMailer mailer;
 
 
 void do_setup();
@@ -602,16 +606,16 @@ void check_status() {
 
 		case OG_SENSOR_MAGNETIC_CLOSED:
 			// check the door status using a single magentic sensor in the closed position
-			DEBUG_PRINT("Checking open sensor...");
+			//DEBUG_PRINT("Checking open sensor...");
 			
 			read_value = door_status = digitalRead(PIN_CLOSED);
 
 			//not sure what this is really for...
 			read_count = (read_count+1)%100;
 
-			DEBUG_PRINT("got ");
-			DEBUG_PRINT(door_status);
-			DEBUG_PRINTLN("...ok!");
+			//DEBUG_PRINT("got ");
+			//DEBUG_PRINT(door_status);
+			//DEBUG_PRINTLN("...ok!");
 
 		break;
 	}
@@ -622,31 +626,19 @@ void check_status() {
 
 	// write log record
 	if(event == DOOR_STATUS_JUST_OPENED || event == DOOR_STATUS_JUST_CLOSED) {
+		last_status_change = curr_utc_time();
+
 		LogStruct l;
-		l.tstamp = curr_utc_time();
+		l.tstamp = last_status_change;
 		l.status = door_status;
 		l.value = read_value;
 		og.write_log(l);
 
-		last_status_change = curr_utc_time();
 
-		DEBUG_PRINT("Sending email...");
+		//Log.Info("Door Changed to %s", l.status);
 
-		byte ip[] = { 192, 168, 0, 125 };
-		WiFiClient mailClient;
-		SmtpClient client(&mailClient, ip);
-
-		Mail mail;
-		mail.from("Some Sender <sender@example.com>");
-		mail.to("Kevin Klika <kevin.klika@gmail.com>");
-		if(event == DOOR_STATUS_JUST_OPENED)
-			mail.subject("Door just opened!");
-		else
-			mail.subject("Door just closed!");
-		
-		mail.body((char*)door_status);
-		client.send(&mail);
-
+		// module : email alerts
+		mailer.send("garage@pursuantsolutions.com", "kevin.klika@gmail.com", "Garage Door Status Changed", (char*)last_status_change);
 
 	}
 	
@@ -655,7 +647,7 @@ void check_status() {
 
 void do_setup()
 {
-	DEBUG_BEGIN(115200);
+	Log.Init(LOGLEVEL, 115200);
 	DEBUG_PRINTLN("");
 	DEBUG_PRINT(F("Setting time server..."));
 	configTime(0, 0, "pool.ntp.org", "time.nist.org", NULL);
@@ -702,6 +694,9 @@ void do_setup()
 		DEBUG_PRINTLN("ok!");
 	}
 
+	mailer.setup("mail.pursuantsolutions.com",587,"garage@pursuantsolutions.com","test");
+
+
 }
 
 void do_loop() {
@@ -744,18 +739,14 @@ void do_loop() {
 			if(WiFi.status() == WL_CONNECTED) {
 				// use ap ssid as mdns name
 				if(MDNS.begin(get_ap_ssid().c_str())) {
-					DEBUG_PRINT(F("Registered MDNS as "));
-					DEBUG_PRINTLN(get_ap_ssid().c_str());
+					Log.Info("Registered MDNS as %s"CR, get_ap_ssid().c_str());
 				}
 
 				og.state = OG_STATE_CONNECTED;
 				led_blink_ms = 0;
 				og.set_led(LOW);
 				
-				DEBUG_PRINT(F("Connected to "));
-				DEBUG_PRINT(WiFi.SSID());
-				DEBUG_PRINT(F(" as "));
-				DEBUG_PRINTLN(WiFi.localIP());
+				Log.Info("Connected to AP [%s] as IP [%s]"CR, og.options[OPTION_SSID].sval.c_str(), get_ip().c_str());
 
 				og.state = OG_STATE_CONNECTED;
 

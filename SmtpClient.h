@@ -5,12 +5,12 @@
 #import "Client.h"
 #import "Mail.h"
 
-class SmtpClient {
+class SMTPClient {
 public:
-  SmtpClient(Client *client, char *server);
-  SmtpClient(Client *client, char *server, uint16_t port);
-  SmtpClient(Client *client, IPAddress serverIP);
-  SmtpClient(Client *client, IPAddress serverIP, uint16_t port);
+  SMTPClient(Client *client, char *server);
+  SMTPClient(Client *client, char *server, uint16_t port);
+  SMTPClient(Client *client, IPAddress serverIP);
+  SMTPClient(Client *client, IPAddress serverIP, uint16_t port);
   int send(Mail *mail);
 
 private:
