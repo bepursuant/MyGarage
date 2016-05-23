@@ -1,35 +1,37 @@
-#include "SmtpClient.h"
+#include "SMTPClient.h"
 #include "Client.h"
+#include "Logging.h"
+
 #define SMTP_PORT 25
 #define ZERO_IP IPAddress(0, 0, 0, 0)
 #define TIMEOUT 10000
-#define CRLF "\r\n"
+#define CR "\r\n"
 
-SmtpClient::SmtpClient(Client* client, char *server) : _client(client), _server(server), _serverIP(ZERO_IP), _port(SMTP_PORT) {
-}
+SMTPClient::SMTPClient(Client* client, char *server) : _client(client), _server(server), _serverIP(ZERO_IP), _port(SMTP_PORT) {}
 
-SmtpClient::SmtpClient(Client* client, char *server, uint16_t port) : _client(client), _server(server), _serverIP(ZERO_IP), _port(port) {
-}
+SMTPClient::SMTPClient(Client* client, char *server, uint16_t port) : _client(client), _server(server), _serverIP(ZERO_IP), _port(port) {}
 
-SmtpClient::SmtpClient(Client* client, IPAddress serverIP) : _client(client), _serverIP(serverIP), _server(""), _port(SMTP_PORT) {
-}
+SMTPClient::SMTPClient(Client* client, IPAddress serverIP) : _client(client), _serverIP(serverIP), _server(""), _port(SMTP_PORT) {}
 
-SmtpClient::SmtpClient(Client* client, IPAddress serverIP, uint16_t port) : _client(client), _serverIP(serverIP), _server(""), _port(port) {
-}
+SMTPClient::SMTPClient(Client* client, IPAddress serverIP, uint16_t port) : _client(client), _serverIP(serverIP), _server(""), _port(port) {}
 
 
-int SmtpClient::send(Mail *mail) {
+int SMTPClient::send(Mail *mail) {
+  Log.Debug("SMTPClient::send : %s"CR, mail);
+
   int result = connect();
   if (!result) {
     _client->stop();
     return 0;
   }
+
   result = _send(mail);
   _client->stop();
+
   return result;
 }
 
-int SmtpClient::_send(Mail *mail) {
+int SMTPClient::_send(Mail *mail) {
   if (readStatus() != 220) {
     return 0;
   }
@@ -53,56 +55,75 @@ int SmtpClient::_send(Mail *mail) {
   return 1;
 }
 
-int SmtpClient::connect() {
-  if (strlen(_server) > 0) {
-    return _client->connect(_server, _port);
-  } else {
-    return _client->connect(_serverIP, _port);
-  }
+int SMTPClient::connect() {
+  int result;
+
+  if (strlen(_server) > 0)
+    result = _client->connect(_server, _port);
+  else
+    result = _client->connect(_serverIP, _port);
+
+  Log.Debug("SMTPClient::connect - result %i"CR, result);
+  return result;
 }
 
-int SmtpClient::helo() {
-  _client->print("EHLO");
-  _client->print(CRLF);
-  int status = readStatus();
-  if (status == 250) {
-    return status;
+int SMTPClient::helo() {
+  int result;
+
+  _client->print("EHLO"CR);
+  result = readStatus();
+
+  if (result != 250) {
+    // IF server doesn't understand EHLO, try HELO
+    _client->print("HELO"CR);
+    result = readStatus();
   }
-  // IF server doesn't understand EHLO, try HELO
-  _client->print("HELO");
-  _client->print(CRLF);
-  return readStatus();
+
+  Log.Debug("SMTPClient::helo - result %i"CR, result);
+  return result;
 }
 
-int SmtpClient::mailFrom(char *from) {
+int SMTPClient::mailFrom(char *from) {
+  int result;
+
   _client->print("MAIL FROM:");
   _client->print(from);
-  _client->print(CRLF);
-  return readStatus();
+  _client->print(CR);
+
+  result = readStatus();
+  Log.Debug("SMTPClient::mailFrom - result %i"CR, result);
+  return result;
 }
 
-int SmtpClient::rcptTo(Mail *mail) {
-  int status;
+int SMTPClient::rcptTo(Mail *mail) {
+  int result;
+
   for (uint8_t i = 0; i < mail->_recipientCount; i++) {
     _client->print("RCPT TO:");
     _client->print(mail->_recipients[i]);
-    _client->print(CRLF);
+    _client->print(CR);
 
-    status = readStatus();
-    if (status != 250) {
+    result = readStatus();
+    if (result != 250) {
       break;
     }
   }
-  return status;
+
+  Log.Debug("SMTPClient::rcptTo - result %i"CR, result);
+  return result;
 }
 
-int SmtpClient::data() {
-  _client->print("DATA ");
-  _client->print(CRLF);
-  return readStatus();
+int SMTPClient::data() {
+  int result;
+
+  _client->print("DATA "CR);
+
+  result = readStatus();
+  Log.Debug("SMTPClient::data - result %i"CR, result);
+  return result;
 }
 
-void SmtpClient::headers(Mail *mail) {
+void SMTPClient::headers(Mail *mail) {
   header("From:", mail->_from);
   if (mail->_replyTo) {
     header("Reply-To:", mail->_replyTo);
@@ -112,15 +133,17 @@ void SmtpClient::headers(Mail *mail) {
   recipientHeader("Bcc:", BCC, mail);
 
   header("Subject:", mail->_subject);
+
+  Log.Debug("SMTPClient::headers - sent"CR);
 }
 
-void SmtpClient::header(char* header, char* value) {
+void SMTPClient::header(char* header, char* value) {
   _client->print(header);
   _client->print(value);
-  _client->print(CRLF);
+  _client->print(CR);
 }
 
-void SmtpClient::recipientHeader(char* header, recipient_t type, Mail *mail) {
+void SMTPClient::recipientHeader(char* header, recipient_t type, Mail *mail) {
   int first = 1;
   for (int i = 0; i < mail->_recipientCount; i++) {
     if (mail->_recipientTypes[i] == type) {
@@ -134,11 +157,11 @@ void SmtpClient::recipientHeader(char* header, recipient_t type, Mail *mail) {
     }
   }
   if (!first) {
-    _client->print(CRLF);
+    _client->print(CR);
   }
 }
 
-void SmtpClient::body(char *body) {
+void SMTPClient::body(char *body) {
   int cr = 0;
   int lf = 0;
 
@@ -160,14 +183,19 @@ void SmtpClient::body(char *body) {
   }
 }
 
-int SmtpClient::finishBody() {
-  _client->print(CRLF);
+int SMTPClient::finishBody() {
+  int result;
+
+  _client->print(CR);
   _client->print('.');
-  _client->print(CRLF);
-  return readStatus();
+  _client->print(CR);
+
+  result = readStatus();
+  Log.Debug("SMTPClient::finishBody - result %i"CR, result);
+  return result;
 }
 
-int SmtpClient::readStatus() {
+int SMTPClient::readStatus() {
   char line[4];
   int result;
   while(true) {
@@ -189,7 +217,7 @@ int SmtpClient::readStatus() {
   return atoi(st);
 }
 
-int SmtpClient::readLine(char *line, int maxLen) {
+int SMTPClient::readLine(char *line, int maxLen) {
   long start = millis();
   int count = 0;
   int cr = 0;

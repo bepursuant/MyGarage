@@ -1,155 +1,156 @@
 /*
-   Email client sketch for IDE v1.0.5 and w5100/w5200
-   Posted 7 May 2015 by SurferTim
+	 Email client sketch for IDE v1.0.5 and w5100/w5200
+	 Posted 7 May 2015 by SurferTim
 */
 
 #include "SMTPMailer.h"
 
-
-void SMTPMailer::setup(char* server, int port)
-{
-  this->server = server;
-  this->port = port;
+void SMTPMailer::setup(char* server, int port, char* user, char* password){
+	this->smtp_host = server;
+	this->smtp_port = port;
+	this->smtp_user = user;
+	this->smtp_pass = password;
 }
 
-byte SMTPMailer::sendEmail(char to, char from, char subject, char body)
+byte SMTPMailer::send(char* from, char* to, char* subject, char* body)
 {
-  byte thisByte = 0;
-  byte respCode;
+	Log.Info("Sending email From [%s] To [%s] Subject[%s]", from, to, subject);
 
-  if(client.connect(server,port) == 1) {
-    Serial.println(F("connected"));
-  } else {
-    Serial.println(F("connection failed"));
-    return 0;
-  }
+	byte thisByte = 0;
+	byte respCode;
 
-  if(!eRcv()) return 0;
+	if(client.connect(this->smtp_host, this->smtp_port)) {
+		Log.Verbose("Connected to Host:%s Port:%i"CR, this->smtp_host, this->smtp_port);
+	} else {
+		Log.Error("Could not connect to Host [%s] Port:[%i]"CR, this->smtp_host, this->smtp_port);
+		return 0;
+	}
 
-  Serial.println(F("Sending hello"));
-// replace 1.2.3.4 with your Arduino's ip
-  client.println("EHLO 1.2.3.4");
-  if(!eRcv()) return 0;
+	if(!awaitResponse()) return 0;
 
-  Serial.println(F("Sending auth login"));
-  client.println("auth login");
-  if(!eRcv()) return 0;
+	Log.Verbose("Sending EHLO"CR);
+	client.printf("EHLO %s\r\n", this->smtp_host);	//change to your public ip
 
-  Serial.println(F("Sending User"));
-// Change to your base64 encoded user
-  client.println("xxxx");
+	if(!awaitResponse()) return 0;
 
-  if(!eRcv()) return 0;
+	Log.Verbose("Sending AUTH LOGIN"CR);
+  client.println("AUTH LOGIN");
+  if(!awaitResponse()) return 0;
+ 
+  Log.Verbose("Sending User"CR);
+  client.println(base64::encode(this->smtp_user));
+ 
+  if(!awaitResponse()) return 0;
+ 
+  Log.Verbose("Sending Password"CR);
+  client.println(base64::encode(this->smtp_pass));
+ 
+  if(!awaitResponse()) return 0;
 
-  Serial.println(F("Sending Password"));
-// change to your base64 encoded password
-  client.println("yyyy");
+	Log.Verbose("Sending From"CR);
+	client.printf("MAIL From: <%s>\r\n", from);	// change to your email address (sender)
 
-  if(!eRcv()) return 0;
+	if(!awaitResponse()) return 0;
 
-// change to your email address (sender)
-  Serial.println(F("Sending From"));
-  client.println("MAIL From: <me@mydomain.com>");
-  if(!eRcv()) return 0;
+	Log.Verbose("Sending To"CR);
+	client.printf("RCPT To: <%s>\r\n", to);	// change to recipient address
 
-// change to recipient address
-  Serial.println(F("Sending To"));
-  client.println("RCPT To: <you@yourdomain.com>");
-  if(!eRcv()) return 0;
+	if(!awaitResponse()) return 0;
 
-  Serial.println(F("Sending DATA"));
-  client.println("DATA");
-  if(!eRcv()) return 0;
+	Log.Verbose("Sending DATA"CR);
+	client.write("DATA\r\n");
 
-  Serial.println(F("Sending email"));
+	if(!awaitResponse()) return 0;
 
-// change to recipient address
-  client.println("To: You <you@yourdomain.com>");
+	Log.Verbose("Sending Message"CR);
 
-// change to your address
-  client.println("From: Me <me@mydomain.com>");
+	client.printf("To: %s\r\n", to);	// change to recipient address
 
-  client.println("Subject: Arduino email test\r\n");
+	client.printf("From: %s\r\n", from);
 
-  client.println("This is from my Arduino!");
+	client.printf("Subject: %s\r\n", subject);
 
-  client.println(".");
+	client.println("Test Body");
 
-  if(!eRcv()) return 0;
+	client.write(".\r\n");
 
-  Serial.println(F("Sending QUIT"));
-  client.println("QUIT");
-  if(!eRcv()) return 0;
+	Log.Debug("Message Sent"CR);
 
-  client.stop();
+	if(!awaitResponse()) return 0;
 
-  Serial.println(F("disconnected"));
+	Log.Verbose("Sending QUIT"CR);
+	client.write("QUIT\r\n");
 
-  return 1;
+	if(!awaitResponse()) return 0;
+
+	client.stop();
+	Log.Verbose("Disconnected"CR);
+
+	return 1;
 }
 
-byte SMTPMailer::eRcv()
+byte SMTPMailer::awaitResponse()
 {
-  byte respCode;
-  byte thisByte;
-  int loopCount = 0;
+	byte respCode;
+	byte thisByte;
+	int loopCount = 0;
 
-  while(!client.available()) {
-    delay(1);
-    loopCount++;
+	while(!client.available()) {
+		delay(1);
+		loopCount++;
 
-    // if nothing received for 10 seconds, timeout
-    if(loopCount > 10000) {
-      client.stop();
-      Serial.println(F("\r\nTimeout"));
-      return 0;
-    }
-  }
+		delay(0);
 
-  respCode = client.peek();
+		// if nothing received for 10 seconds, timeout
+		if(loopCount > 10000) {
+			client.stop();
+			Log.Verbose("\r\nTimeout"CR);
+			return 0;
+		}
+	}
 
-  while(client.available())
-  {  
-    thisByte = client.read();    
-    Serial.write(thisByte);
-  }
+	respCode = client.peek();
 
-  if(respCode >= '4')
-  {
-    eFail();
-    return 0;  
-  }
+	while(client.available())
+	{  
+		thisByte = client.read();    
+		Serial.write(thisByte);
+	}
 
-  return 1;
+	if(respCode >= '4')
+	{
+		eFail();
+		return 0;  
+	}
+
+	return 1;
 }
-
 
 void SMTPMailer::eFail()
 {
-  byte thisByte = 0;
-  int loopCount = 0;
+	byte thisByte = 0;
+	int loopCount = 0;
 
-  client.println(F("QUIT"));
+	client.write("QUIT\r\n");
 
-  while(!client.available()) {
-    delay(1);
-    loopCount++;
+	while(!client.available()) {
+		delay(1);
+		loopCount++;
 
-    // if nothing received for 10 seconds, timeout
-    if(loopCount > 10000) {
-      client.stop();
-      Serial.println(F("\r\nTimeout"));
-      return;
-    }
-  }
+		// if nothing received for 10 seconds, timeout
+		if(loopCount > 10000) {
+			client.stop();
+			Log.Verbose("\r\nTimeout"CR);
+			return;
+		}
+	}
 
-  while(client.available())
-  {  
-    thisByte = client.read();    
-    Serial.write(thisByte);
-  }
+	while(client.available())
+	{  
+		thisByte = client.read();    
+		Serial.write(thisByte);
+	}
 
-  client.stop();
-
-  Serial.println(F("disconnected"));
+	client.stop();
+	Log.Verbose("Disconnected"CR);
 }

@@ -1,20 +1,29 @@
-#include <SPI.h>
-#include <Ethernet.h>
+#ifndef SMTPMAILER_H_
+#define SMTPMAILER_H_
+
+
+#include "Logging.h"
+#include <ESP8266WiFi.h>
+#include <base64.h>
+
+typedef unsigned char byte;
 
 
 class SMTPMailer{
 
-	const char* server = "smtp.google.com";
-	int port = 2525;
-
-
 	public:
-		void setup(char* server, int port);
-		byte sendEmail(char to, char from, char subject, char body);
+		char* smtp_host;
+		int smtp_port;
+		char* smtp_user;
+		char* smtp_pass;
 
-	private:
-		EthernetClient client;
-		byte eRcv();
+		WiFiClient client;
+
+		void setup(char* server, int port, char* user, char* password);
+		byte send(char* from, char* to, char* subject, char* body);
+		byte awaitResponse();
 		void eFail();
 
 };
+
+#endif
