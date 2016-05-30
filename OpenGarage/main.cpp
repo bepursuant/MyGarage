@@ -19,26 +19,39 @@
  * along with this program.  If not, see
  * <http://www.gnu.org/licenses/>.
  */
+
+// for logging all messages to (like a serial interface)
 #include "Logging.h"
-#define LOGLEVEL LOGLEVEL_VERBOSE
+#define LOGLEVEL LOGGING_VERBOSE
+Logging Log = Logging();
 
-#include "OpenGarage.h"
 #include "APWizard.h"
-
-#include "SMTPMailer.h"
- 
 #include <ArduinoJson.h>
 
+#include "OpenGarage.h"
 OpenGarage og;
+
+// for storing/retrieving configuration values in the file system
+#include "ConfigFile.h"
+ConfigFile config;
+
+// for sending email messages
+#include "SMTPMailer.h"
+SMTPMailer mailer;
+
 ESP8266WebServer *server = NULL;
 
 static String scanned_ssids;
+
 static byte read_count = 0;
 static uint read_value = 0;
 static byte door_status = 0;
+
 static uint led_blink_ms = LED_FAST_BLINK;
 static ulong restart_timeout = 0;
 static byte curr_mode;
+
+
 // this is one byte storing the door status histogram
 // maximum 8 bits
 static byte door_status_hist = 0;
@@ -50,10 +63,6 @@ static ulong last_utc = 0;		// stores the last synced UTC time
 static ulong last_ntp = 0;		// stores the last millis() we synced time with ntp
 static ulong last_status_check = 0;	// stores the last millis() we checked the door status
 static ulong last_status_change = 0;// stores the last utc the status changed
-
-
-SMTPMailer mailer;
-
 
 void do_setup();
 
@@ -248,10 +257,10 @@ void on_json_logs() {
 		if(!og.read_log(l,i)) continue;
 		//if(!l.tstamp) continue;
 
-		JsonObject& log = logs.createNestedObject();
-		log["tstamp"] = l.tstamp;
-		log["status"] = l.status;
-		log["read_value"] = l.value;
+		JsonObject& lg = logs.createNestedObject();
+		lg["tstamp"] = l.tstamp;
+		lg["status"] = l.status;
+		lg["read_value"] = l.value;
 	}
 
 	og.read_log_end();
@@ -266,7 +275,10 @@ void on_json_options() {
 	OptionStruct *o = og.options;
 	
 	DynamicJsonBuffer jsonBuffer;
-	JsonObject& root = jsonBuffer.createObject();
+	String configJson;
+	config.json().printTo(configJson);
+
+	JsonObject& root = jsonBuffer.parseObject(configJson);
 
 	for(byte i=0;i<NUM_OPTIONS;i++,o++) {
 		if(!o->max) {
@@ -275,6 +287,8 @@ void on_json_options() {
 			root[o->name] = o->ival;
 		}
 	}
+
+
 
 	String retJson;
 	root.printTo(retJson);
@@ -344,6 +358,16 @@ void on_post_options() {
 	String sval;
 	byte i;
 	OptionStruct *o = og.options;
+
+	int numArgs = server->args();
+	for(i=0;i<numArgs;i++){
+		String aKey = server->argName(i);
+		String aVal = server->arg(i);
+		Log.debug("%s:%s"CR,aKey.c_str(), aVal.c_str());
+		config.json()[aKey] = aVal;
+	}
+
+	config.save();
 	
 	// FIRST ROUND: check option validity
 	// do not save option values yet
@@ -564,11 +588,7 @@ void time_keeping() {
 
 			int drift = gt - curr_utc_time();
 
-			DEBUG_PRINT(F("Synchronized time using NTP. Current unix timestamp is "));
-			DEBUG_PRINT(gt);
-			DEBUG_PRINT("(drifted ");
-			DEBUG_PRINT(drift);
-			DEBUG_PRINTLN("s).");
+			Log.info("Synchronized time using NTP. Current unix timestamp is %i (drifted %i s)."CR, gt, drift);
 		} 
 
 	}
@@ -635,25 +655,26 @@ void check_status() {
 		og.write_log(l);
 
 
-		//Log.Info("Door Changed to %s", l.status);
+		//Log.info("Door Changed to %s", l.status);
 
 		// module : email alerts
-		mailer.send("garage@pursuantsolutions.com", "kevin.klika@gmail.com", "Garage Door Status Changed", (char*)last_status_change);
-
+		//if((bool)config.json()["smtp_notify_status"]){
+			mailer.send(config.json()["smtp_from"], config.json()["smtp_to"], config.json()["smtp_subject"], (char*)last_status_change);
+		//}
 	}
 	
-	last_status_check = millis();
 }
 
 void do_setup()
 {
-	Log.Init(LOGLEVEL, 115200);
-	DEBUG_PRINTLN("");
-	DEBUG_PRINT(F("Setting time server..."));
+	Log.init(LOGLEVEL, 115200);
+
+	Log.verbose("Configuring NTP Time Servers...");
 	configTime(0, 0, "pool.ntp.org", "time.nist.org", NULL);
-	DEBUG_PRINTLN(F("ok!"));
+	Log.verbose("ok!"CR);
 
 	if(server) {
+		Log.verbose("Server object already existed during do_setup routine and has been erased.");
 		delete server;
 		server = NULL;
 	}
@@ -662,6 +683,8 @@ void do_setup()
 	og.options_setup();
 
 	curr_mode = og.get_mode();
+
+	config.init("/jsoncfg.json");
 
 	if(!server) {
 		DEBUG_PRINT(F("Starting server on port "));
@@ -694,7 +717,8 @@ void do_setup()
 		DEBUG_PRINTLN("ok!");
 	}
 
-	mailer.setup("mail.pursuantsolutions.com",587,"garage@pursuantsolutions.com","test");
+
+	mailer.setup(config.json()["smtp_host"], config.json()["smtp_port"], config.json()["smtp_user"], config.json()["smtp_pass"]);
 
 
 }
@@ -739,14 +763,14 @@ void do_loop() {
 			if(WiFi.status() == WL_CONNECTED) {
 				// use ap ssid as mdns name
 				if(MDNS.begin(get_ap_ssid().c_str())) {
-					Log.Info("Registered MDNS as %s"CR, get_ap_ssid().c_str());
+					Log.info("Registered MDNS as %s"CR, get_ap_ssid().c_str());
 				}
 
 				og.state = OG_STATE_CONNECTED;
 				led_blink_ms = 0;
 				og.set_led(LOW);
 				
-				Log.Info("Connected to AP [%s] as IP [%s]"CR, og.options[OPTION_SSID].sval.c_str(), get_ip().c_str());
+				Log.info("Connected to AP [%s] as IP [%s]"CR, og.options[OPTION_SSID].sval.c_str(), get_ip().c_str());
 
 				og.state = OG_STATE_CONNECTED;
 
@@ -786,6 +810,7 @@ void do_loop() {
 	time_keeping();
 
 	if(millis() > last_status_check + (og.options[OPTION_RIV].ival * 1000)) {
+		last_status_check = millis();
 		check_status();
 	}
 
