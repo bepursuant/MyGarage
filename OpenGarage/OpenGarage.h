@@ -26,6 +26,7 @@
 #include <Arduino.h>
 #include <FS.h>
 #include "defines.h"
+#include "Logging.h"
 
 // define a struct to hold configuration options
 struct OptionStruct {

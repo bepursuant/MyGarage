@@ -207,18 +207,104 @@
 					</div>
 				</div>
 
+
+<!-- EMAIL NOTIFICATIONS -->
+
+				<h4 class="ui dividing header">Email Status Notifications</h4>
+
+				<div class="fields">
+					<div class="three wide field">
+						<label>SMTP Host</label>
+						<input type="text" maxlength="32" id="smtp_host" name="smtp_host" />
+					</div>
+
+					<div class="three wide field">
+						<label>SMTP Port</label>
+						<input type="text" maxlength="5" id="smtp_port" name="smtp_port" />
+					</div>
+
+					<div class="three wide field">
+						<label>SMTP User</label>
+						<input type="text"  maxlength="32" id="smtp_user" name="smtp_user" />
+					</div>
+
+					<div class="three wide field">
+						<label>SMTP Password</label>
+						<input type="password" maxlength="32" id="smtp_pass" name="smtp_pass" />
+					</div>
+				</div>
+
+				<div class="fields">
+					<div class="six wide field">
+						<label>SMTP From Email</label>
+						<input type="text" maxlength="32" id="smtp_from" name="smtp_from" />
+					</div>
+
+					<div class="six wide field">
+						<label>SMTP To Email</label>
+						<input type="text" maxlength="32" id="smtp_to" name="smtp_to" />
+					</div>
+				</div>
+
+				<div class="fields">
+					<div class="six wide field">
+						<div class="twelve wide field">
+							<label>
+								<div class="ui checkbox">
+									<input type="checkbox" id="smtp_notify_status" name="smtp_notify_status" />
+									<label>Send Email on Door Status Change</label>
+								</div>
+							</label>
+						</div>
+
+						<div class="twelve wide field">
+							<label>Door Status Change Email Subject</label>
+							<input type="text" id="smtp_notify_status_subject" name="smtp_notify_status_subject" />
+						</div>
+
+						<div class="twelve wide field">
+							<label>Door Status Change Email Body</label>
+							<textarea id="smtp_notify_status_body" name="smtp_notify_status_body"></textarea>
+						</div>
+					</div>
+
+					<div class="six wide field">
+						<div class="twelve wide field">
+							<label>
+								<div class="ui checkbox">
+									<input type="checkbox" id="smtp_notify_boot" name="smtp_notify_boot" />
+									<label>Send Email on Boot/Reboot</label>
+								</div>
+							</label>
+						</div>
+
+						<div class="twelve wide field">
+							<label>Boot/Reboot Email Subject</label>
+							<input type="text" id="smtp_notify_boot_subject" name="smtp_notify_boot_subject" />
+						</div>
+
+						<div class="twelve wide field">
+							<label>Boot/Reboot Email Body</label>
+							<textarea id="smtp_notify_boot_body" name="smtp_notify_boot_body"></textarea>
+						</div>
+					</div>
+				</div>
+
+
 				<h4 class="ui dividing header">Firmware Update</h4>
 
-				<div class="six wide field">
-					<label>New Firmware File (.bin)</label>
+				<div class="fields">
+					<div class="twelve wide field">
+						<label>New Firmware File (.bin)</label>
 						<div class="ui action input">
-								<input type="text" readonly id="_file">
-								<input type="file" id="file" name="file" accept=".bin" style="display: none">
-								<label for="_file" class="ui icon button btn-file">
-									<i class="folder basic icon"></i>
-								</label>
+							<input type="text" readonly id="_file">
+							<input type="file" id="file" name="file" accept=".bin" style="display: none">
+							<label for="_file" class="ui icon button btn-file">
+								<i class="folder basic icon"></i>
+							</label>
 						</div>
-				</div>  
+					</div> 
+				</div>
 
 				<h4 class="ui dividing header">Save Changes</h4>
 
@@ -288,6 +374,18 @@
 						$("#http_port").val(jd.http_port);
 						$("#name").val(jd.name);
 						$("#auth").val(jd.auth);
+
+						$("#smtp_notify_boot").prop("checked", jd.smtp_notify_boot == "on" ? 1 : 0);
+						$("#smtp_notify_status").prop("checked", jd.smtp_notify_status == "on" ? 1 : 0);
+
+						$("#smtp_host").val(jd.smtp_host);
+						$("#smtp_port").val(jd.smtp_port);
+						$("#smtp_user").val(jd.smtp_user);
+						$("#smtp_pass").val(jd.smtp_pass);
+						$("#smtp_from").val(jd.smtp_from);
+						$("#smtp_to").val(jd.smtp_to);
+						$("#smtp_subject").val(jd.smtp_subject);
+
 						$("#options_form").removeClass("loading");
 						$("#options_refresh i").removeClass("loading");
 					});

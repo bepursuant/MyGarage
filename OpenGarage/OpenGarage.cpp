@@ -76,34 +76,6 @@ void OpenGarage::begin() {
 
 }
 
-void OpenGarage::options_setup() {
-  if(!SPIFFS.exists(config_fname)) { // if config file does not exist
-    DEBUG_PRINT(F("Saving default config to SPIFFS..."));
-    options_save(); // save default option values
-    DEBUG_PRINTLN(F("ok!"));
-    return;
-  }
-  options_load();
-  
-  if(options[OPTION_FIRMWARE_VERSION].ival != OG_FIRMWARE_VERSION)  {
-    // if firmware version has changed
-    // re-save options, thus preserving
-    // shared options with previous firmwares
-    options[OPTION_FIRMWARE_VERSION].ival = OG_FIRMWARE_VERSION;
-    options_save();
-    return;
-  }
-}
-
-void OpenGarage::options_reset() {
-  DEBUG_PRINT(F("Resetting options to factory default..."));
-  if(!SPIFFS.remove(config_fname)) {
-    DEBUG_PRINTLN(F("failed!"));
-    return;
-  }
-  DEBUG_PRINTLN(F("ok!"));
-}
-
 void OpenGarage::log_reset() {
   DEBUG_PRINT(F("Resetting logs to factory default..."));
   if(!SPIFFS.remove(log_fname)) {
@@ -111,84 +83,6 @@ void OpenGarage::log_reset() {
     return;
   }
   DEBUG_PRINTLN(F("ok!"));  
-}
-
-int OpenGarage::find_option(String name) {
-  for(byte i=0;i<NUM_OPTIONS;i++) {
-    if(name == options[i].name) {
-      return i;
-    }
-  }
-  return -1;
-}
-
-void OpenGarage::options_load() {
-  DEBUG_PRINT(F("Loading config file "));
-  DEBUG_PRINT(config_fname);
-  DEBUG_PRINT(F("..."));
-
-  File file = SPIFFS.open(config_fname, "r");
-  if(!file) {
-    DEBUG_PRINTLN(F("failed!"));
-    return;
-  }
-
-  while(file.available()) {
-    String name = file.readStringUntil(':');
-    String sval = file.readStringUntil('\n');
-    sval.trim();
-    int idx = find_option(name);
-    if(idx<0) continue;
-    if(options[idx].max) {  // this is an integer option
-      options[idx].ival = sval.toInt();
-    } else {  // this is a string option
-      options[idx].sval = sval;
-    }
-  }
-  file.close();
-
-  DEBUG_PRINTLN(F("ok!"));
-}
-
-void OpenGarage::options_save() {
-  DEBUG_PRINT(F("Saving config file "));
-  DEBUG_PRINT(config_fname);
-  DEBUG_PRINT(F("..."));
-
-  File file = SPIFFS.open(config_fname, "w");
-  if(!file) {
-    DEBUG_PRINTLN(F("failed!"));
-    return;
-  }
-
-  OptionStruct *o = options;
-  for(byte i=0;i<NUM_OPTIONS;i++,o++) {
-    file.print(o->name + ":");
-    if(o->max){
-      file.println(o->ival);
-    }else{
-      file.println(o->sval);
-    }
-  }
-  file.close();
-
-  DEBUG_PRINTLN(F("ok!"));  
-}
-
-
-uint OpenGarage::read_distance() {
-  ulong distance, duration;
-
-  digitalWrite(PIN_TRIG, LOW);
-  delayMicroseconds(2);
-  digitalWrite(PIN_TRIG, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(PIN_TRIG, LOW);
-  
-  duration = pulseIn(PIN_ECHO, HIGH, 10000);
-  distance = (duration/2) / 29.1;  
-
-  return (uint)distance;
 }
 
 void OpenGarage::write_log(const LogStruct& data) {
@@ -275,6 +169,111 @@ bool OpenGarage::read_log_end() {
   log_file.close();
   return true;
 }
+
+void OpenGarage::options_load() {
+  Log.info("Loading config file [%s]...", config_fname);
+
+  File file = SPIFFS.open(config_fname, "r");
+  if(!file) {
+    DEBUG_PRINTLN(F("failed!"));
+    return;
+  }
+
+  while(file.available()) {
+    String name = file.readStringUntil(':');
+    String sval = file.readStringUntil('\n');
+    sval.trim();
+    int idx = find_option(name);
+    if(idx<0) continue;
+    if(options[idx].max) {  // this is an integer option
+      options[idx].ival = sval.toInt();
+    } else {  // this is a string option
+      options[idx].sval = sval;
+    }
+  }
+  file.close();
+
+  Log.info("ok!");
+}
+
+void OpenGarage::options_save() {
+  DEBUG_PRINT(F("Saving config file "));
+  DEBUG_PRINT(config_fname);
+  DEBUG_PRINT(F("..."));
+
+  File file = SPIFFS.open(config_fname, "w");
+  if(!file) {
+    DEBUG_PRINTLN(F("failed!"));
+    return;
+  }
+
+  OptionStruct *o = options;
+  for(byte i=0;i<NUM_OPTIONS;i++,o++) {
+    file.print(o->name + ":");
+    if(o->max){
+      file.println(o->ival);
+    }else{
+      file.println(o->sval);
+    }
+  }
+  file.close();
+
+  DEBUG_PRINTLN(F("ok!"));  
+}
+
+void OpenGarage::options_setup() {
+  if(!SPIFFS.exists(config_fname)) { // if config file does not exist
+    DEBUG_PRINT(F("Saving default config to SPIFFS..."));
+    options_save(); // save default option values
+    DEBUG_PRINTLN(F("ok!"));
+    return;
+  }
+  options_load();
+  
+  if(options[OPTION_FIRMWARE_VERSION].ival != OG_FIRMWARE_VERSION)  {
+    // if firmware version has changed
+    // re-save options, thus preserving
+    // shared options with previous firmwares
+    options[OPTION_FIRMWARE_VERSION].ival = OG_FIRMWARE_VERSION;
+    options_save();
+    return;
+  }
+}
+
+void OpenGarage::options_reset() {
+  DEBUG_PRINT(F("Resetting options to factory default..."));
+  if(!SPIFFS.remove(config_fname)) {
+    DEBUG_PRINTLN(F("failed!"));
+    return;
+  }
+  DEBUG_PRINTLN(F("ok!"));
+}
+
+
+int OpenGarage::find_option(String name) {
+  for(byte i=0;i<NUM_OPTIONS;i++) {
+    if(name == options[i].name) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+uint OpenGarage::read_distance() {
+  ulong distance, duration;
+
+  digitalWrite(PIN_TRIG, LOW);
+  delayMicroseconds(2);
+  digitalWrite(PIN_TRIG, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(PIN_TRIG, LOW);
+  
+  duration = pulseIn(PIN_ECHO, HIGH, 10000);
+  distance = (duration/2) / 29.1;  
+
+  return (uint)distance;
+}
+
 
 bool OpenGarage::open(){
   click_relay();

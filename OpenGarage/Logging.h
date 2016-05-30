@@ -12,17 +12,17 @@
 
 //#include "pins_arduino.h"
 
-#define LOGLEVEL_NOOUTPUT 0 
-#define LOGLEVEL_ERRORS 1
-#define LOGLEVEL_INFOS 2
-#define LOGLEVEL_DEBUG 3
-#define LOGLEVEL_VERBOSE 4
+#define LOGGING_NOOUTPUT 0 
+#define LOGGING_ERROR 1
+#define LOGGING_INFO 2
+#define LOGGING_DEBUG 3
+#define LOGGING_VERBOSE 4
 
 // default loglevel if nothing is set from user
-#define LOGLEVEL LOGLEVEL_DEBUG 
+#define LOGLEVEL LOGGING_DEBUG 
 
 #define CR "\r\n"
-#define LOGGING_VERSION 1
+#define LOG_VERSION 1
 
 /*!
 * Logging is a helper class to output informations over
@@ -83,7 +83,7 @@ public:
 	* \return void
 	*
 	*/
-	void Init(int level, long baud);
+	void init(int level, long baud);
 	
     /**
 	* Output an error message. Output message contains
@@ -94,7 +94,7 @@ public:
 	* \param ... any number of variables
 	* \return void
 	*/
-    void Error(char* msg, ...);
+    void error(char* msg, ...);
 	
     /**
 	*Output an info message. Output message contains
@@ -106,7 +106,7 @@ public:
 	* \return void
 	*/
 
-   void Info(char* msg, ...);
+   void info(char* msg, ...);
 	
     /**
 	* Output an debug message. Output message contains
@@ -118,7 +118,7 @@ public:
 	* \return void
 	*/
 
-    void Debug(char* msg, ...);
+    void debug(char* msg, ...);
 	
     /**
 	* Output an verbose message. Output message contains
@@ -130,7 +130,7 @@ public:
 	* \return void
 	*/
 
-    void Verbose(char* msg, ...);   
+    void verbose(char* msg, ...);   
 
     
 private:
@@ -138,4 +138,5 @@ private:
 };
 
 extern Logging Log;
+
 #endif
