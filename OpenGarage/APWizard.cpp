@@ -22,21 +22,19 @@
  
 #include "APWizard.h"
 #include "www_assets.h"
+#include "Logging.h"
 
 String scan_network() {
-  DEBUG_PRINT(F("Scanning available networks..."));
+  Log.info("Scanning available networks...");
 
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
   byte n = WiFi.scanNetworks();
 
-  DEBUG_PRINT(F("found "));
-  DEBUG_PRINT(n);
-  DEBUG_PRINT(F("..."));
+  Log.info("found %i...", n);
 
   DynamicJsonBuffer jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
-
   JsonArray& networks = root.createNestedArray("networks");
 
   for(int i=0;i<n;i++) {
@@ -54,33 +52,36 @@ String scan_network() {
   String retJson;
   root.printTo(retJson);
 
-  DEBUG_PRINTLN(F("ok!"));
+  Log.info("ok!"CR);
   return retJson;
 }
 
 void start_network_ap(const char *ssid, const char *pass) {
   if(!ssid) return;
-  DEBUG_PRINT(F("Starting AP mode..."));
+
+  Log.info("Starting AP mode...");
+
   if(pass)
     WiFi.softAP(ssid, pass);
   else
     WiFi.softAP(ssid);
   WiFi.mode(WIFI_AP_STA); // start in AP_STA mode
   WiFi.disconnect();  // disconnect from router
-  DEBUG_PRINTLN(F("ok!"));
+  
+  Log.info("ok!"CR);
 }
 
 void start_network_sta_with_ap(const char *ssid, const char *pass) {
   if(!ssid || !pass) return;
-  DEBUG_PRINT(F("Starting STA mode with AP..."));
+  Log.info("Starting STA mode with AP...");
   WiFi.begin(ssid, pass);
-  DEBUG_PRINTLN(F("ok!"));
+  Log.info("ok!"CR);
 }
 
 void start_network_sta(const char *ssid, const char *pass) {
   if(!ssid || !pass) return;
-  DEBUG_PRINT(F("Starting STA mode..."));
+  Log.info("Starting STA mode...");
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, pass);
-  DEBUG_PRINTLN("ok!");
+  Log.info("ok!"CR);
 }

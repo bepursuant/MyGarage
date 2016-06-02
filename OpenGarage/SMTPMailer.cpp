@@ -5,7 +5,7 @@
 
 #include "SMTPMailer.h"
 
-void SMTPMailer::setup(const char* server, int port, const char* user, const char* password){
+void SMTPMailer::init(const char* server, int port, const char* user, const char* password){
 	this->smtp_host = server;
 	this->smtp_port = port;
 	this->smtp_user = user;
@@ -14,7 +14,7 @@ void SMTPMailer::setup(const char* server, int port, const char* user, const cha
 
 byte SMTPMailer::send(const char* from, const char* to, const char* subject, const char* body)
 {
-	Log.info("Sending email From [%s] To [%s] Subject[%s]"CR, from, to, subject);
+	Log.info("Sending email From [%s] To [%s] Subject [%s]"CR, from, to, subject);
 
 	byte thisByte = 0;
 	byte respCode;

@@ -162,16 +162,14 @@ String get_ap_ssid() {
 // get the ip as an array of octets and return as a dotted decimal string
 String get_ip() {
 	static String ip = "";
-	if(!ip.length()) {
-		IPAddress _ip = WiFi.localIP();
-		ip = _ip[0];
-		ip += ".";
-		ip += _ip[1];
-		ip += ".";
-		ip += _ip[2];
-		ip += ".";
-		ip += _ip[3];
-	}
+	IPAddress _ip = WiFi.localIP();
+	ip = _ip[0];
+	ip += ".";
+	ip += _ip[1];
+	ip += ".";
+	ip += _ip[2];
+	ip += ".";
+	ip += _ip[3];
 	return ip;
 }
 
@@ -184,7 +182,7 @@ bool verify_devicekey() {
 bool is_authenticated() {
 	if (server->hasHeader("Cookie")){   
 		String cookie = server->header("Cookie");
-		DEBUG_PRINTLN(cookie);
+		Log.info("Authenticating Cookie [%s]", cookie.c_str());
 		if (cookie.indexOf("OG_TOKEN=" + token) != -1) {
 			return true;
 		}
@@ -221,7 +219,7 @@ void on_get_portal() {
 }
 
 
-void on_json_controller() {
+void on_get_controller() {
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 
@@ -241,7 +239,7 @@ void on_json_controller() {
 	server_send_json(retJson);
 }
 
-void on_json_logs() {
+void on_get_logs() {
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 
@@ -271,32 +269,13 @@ void on_json_logs() {
 	server_send_json(retJson);
 }
 
-void on_json_options() {
-	OptionStruct *o = og.options;
-	
-	DynamicJsonBuffer jsonBuffer;
-	String configJson;
-	config.json().printTo(configJson);
-
-	JsonObject& root = jsonBuffer.parseObject(configJson);
-
-	for(byte i=0;i<NUM_OPTIONS;i++,o++) {
-		if(!o->max) {
-			root[o->name] = o->sval;
-		} else {  // if this is a int option
-			root[o->name] = o->ival;
-		}
-	}
-
-
-
+void on_get_config() {
 	String retJson;
-	root.printTo(retJson);
-
+	config.json().printTo(retJson);
 	server_send_json(retJson);
 }
 
-void on_json_status(){
+void on_get_status(){
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 
@@ -320,7 +299,7 @@ void on_json_status(){
 	server_send_json(retJson);
 }
 
-void on_controller() {
+void on_post_controller() {
 	if(server->hasArg("click")) {
 		og.click_relay();
 		server_send_result(HTML_SUCCESS);
@@ -332,7 +311,7 @@ void on_controller() {
 	}
 }
 
-void on_auth() {
+void on_post_auth() {
 
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
@@ -353,84 +332,21 @@ void on_auth() {
 
 }
 
-void on_post_options() {
-	uint ival = 0;
-	String sval;
-	byte i;
-	OptionStruct *o = og.options;
+// POST /json/options - save configuration
+void on_post_config() {
 
+	// Go through the posted arguments and save them to the configuration object
 	int numArgs = server->args();
-	for(i=0;i<numArgs;i++){
+
+	for(byte i=0; i<numArgs; i++){
 		String aKey = server->argName(i);
 		String aVal = server->arg(i);
-		Log.debug("%s:%s"CR,aKey.c_str(), aVal.c_str());
 		config.json()[aKey] = aVal;
 	}
 
+	// then write the changes to the FS
 	config.save();
 	
-	// FIRST ROUND: check option validity
-	// do not save option values yet
-	for(i=0;i<NUM_OPTIONS;i++,o++) {
-		const char *key = o->name.c_str();
-		// these options cannot be modified here
-		if(i==OPTION_FIRMWARE_VERSION || i==OPTION_MOD  || i==OPTION_SSID ||
-			i==OPTION_PASS || i==OPTION_DEVICEKEY)
-			continue;
-		
-		if(o->max) {  // integer options
-			if(get_value_by_key(key, ival)) {
-				if(ival>o->max) {
-					server_send_result(HTML_DATA_OUTOFBOUND, key);
-					return;
-				}
-			}
-		}
-	}
-	
-	
-	// Check device key change
-	String nkey, ckey;
-	const char* _nkey = "nkey";
-	const char* _ckey = "ckey";
-	
-	if(get_value_by_key(_nkey, nkey)) {
-		if(get_value_by_key(_ckey, ckey)) {
-			if(!nkey.equals(ckey)) {
-				server_send_result(HTML_MISMATCH, _ckey);
-				return;
-			}
-		} else {
-			server_send_result(HTML_DATA_MISSING, _ckey);
-			return;
-		}
-	}
-	
-	// SECOND ROUND: change option values
-	o = og.options;
-	for(i=0;i<NUM_OPTIONS;i++,o++) {
-		const char *key = o->name.c_str();
-		// these options cannot be modified here
-		if(i==OPTION_FIRMWARE_VERSION || i==OPTION_MOD  || i==OPTION_SSID ||
-			i==OPTION_PASS || i==OPTION_DEVICEKEY)
-			continue;
-		
-		if(o->max) {  // integer options
-			if(get_value_by_key(key, ival)) {
-				o->ival = ival;
-			}
-		} else {
-			if(get_value_by_key(key, sval)) {
-				o->sval = sval;
-			}
-		}
-	}
-
-	if(get_value_by_key(_nkey, nkey)) {
-			og.options[OPTION_DEVICEKEY].sval = nkey;
-	}
-
-	og.options_save();
 	server_send_result(HTML_SUCCESS);
 }
 
@@ -447,8 +363,9 @@ void on_ap_change_config() {
 			return;
 		}
 		og.options_save();
-		server_send_result(HTML_SUCCESS);
 		og.state = OG_STATE_TRY_CONNECT;
+
+		server_send_result(HTML_SUCCESS);
 	}
 }
 
@@ -526,6 +443,7 @@ byte check_door_status_hist() {
 
 
 void on_sta_upload_fin() {
+	
 
 	if(!verify_devicekey()) {
 		server_send_result(HTML_UNAUTHORIZED);
@@ -545,28 +463,28 @@ void on_sta_upload_fin() {
 
 void on_sta_upload() {
 	HTTPUpload& upload = server->upload();
+	Log.info("Receiving file [%s]...", upload.filename.c_str());
+
 	if(upload.status == UPLOAD_FILE_START){
 		WiFiUDP::stopAll();
-		DEBUG_PRINT(F("prepare to upload: "));
-		DEBUG_PRINTLN(upload.filename);
 		uint32_t maxSketchSpace = (ESP.getFreeSketchSpace()-0x1000)&0xFFFFF000;
 		if(!Update.begin(maxSketchSpace)) {
-			DEBUG_PRINTLN(F("not enough space"));
+			Log.info("not enough space...nok!");
 		}
 		
 	} else if(upload.status == UPLOAD_FILE_WRITE) {
-		DEBUG_PRINT(".");
+		Log.info(".");
 		if(Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-			DEBUG_PRINTLN(F("size mismatch"));
+			Log.info("size mismatch...nok!");
 		}
 			
 	} else if(upload.status == UPLOAD_FILE_END) {
 		
-		DEBUG_PRINTLN(F("upload completed"));
+		Log.info("ok!");
 	 
 	} else if(upload.status == UPLOAD_FILE_ABORTED){
 		Update.end();
-		DEBUG_PRINTLN(F("upload aborted"));
+		Log.info("upload aborted...nok!");
 	}
 	delay(0); 
 }
@@ -610,7 +528,7 @@ void check_status() {
 			read_value = og.read_distance();
 			DEBUG_PRINT("got ");
 			DEBUG_PRINT(read_value);
-			DEBUG_PRINTLN("cm...ok!");
+			Log.info("cm...ok!");
 
 			//not sure what this is really for...
 			read_count = (read_count+1)%100;
@@ -635,7 +553,7 @@ void check_status() {
 
 			//DEBUG_PRINT("got ");
 			//DEBUG_PRINT(door_status);
-			//DEBUG_PRINTLN("...ok!");
+			//Log.info("...ok!");
 
 		break;
 	}
@@ -687,38 +605,36 @@ void do_setup()
 	config.init("/jsoncfg.json");
 
 	if(!server) {
-		DEBUG_PRINT(F("Starting server on port "));
-		DEBUG_PRINT(og.options[OPTION_HTTP_PORT].ival);
-		DEBUG_PRINT("...");
+		Log.info("Starting server on Port [%i]...", og.options[OPTION_HTTP_PORT].ival);
 
 		server = new ESP8266WebServer(og.options[OPTION_HTTP_PORT].ival);
 
-		// routes for AP mode
 		server->on("/",   on_get_index);    
 		server->on("/json/networks", on_json_networks);
 		server->on("/cc", on_ap_change_config);
 		server->on("/jt", on_ap_try_connect);
 
-		// routes for STA mode
-		//server->on("/status", on_get_status);
-		server->on("/controller", on_controller);
 		server->on("/portal", on_get_portal);
-		server->on("/auth", on_auth);
-		server->on("/options", HTTP_POST, on_post_options);
+		server->on("/auth", HTTP_POST, on_post_auth);
 		server->on("/update", HTTP_POST, on_sta_upload_fin, on_sta_upload);
 
-		// define all of the json data providers / API urls
-		server->on("/json/logs", on_json_logs);
-		server->on("/json/status", on_json_status);
-		server->on("/json/controller", on_json_controller);
-		server->on("/json/options", on_json_options);
+
+		server->on("/json/logs", HTTP_GET, on_get_logs);
+		server->on("/json/status", HTTP_GET, on_get_status);
+
+		server->on("/json/controller", HTTP_GET, on_get_controller);
+		server->on("/json/controller", HTTP_POST, on_post_controller);
+
+		server->on("/json/config", HTTP_GET, on_get_config);
+		server->on("/json/config", HTTP_POST, on_post_config);
+
 
 		server->begin();
-		DEBUG_PRINTLN("ok!");
+		Log.info("ok!");
 	}
 
 
-	mailer.setup(config.json()["smtp_host"], config.json()["smtp_port"], config.json()["smtp_user"], config.json()["smtp_pass"]);
+	mailer.init(config.json()["smtp_host"], config.json()["smtp_port"], config.json()["smtp_user"], config.json()["smtp_pass"]);
 
 
 }
@@ -736,16 +652,17 @@ void do_loop() {
 				String ap_ssid = get_ap_ssid();
 				start_network_ap(ap_ssid.c_str(), NULL);
 
-				DEBUG_PRINT("IP Address: ");
-				DEBUG_PRINTLN(WiFi.softAPIP());
+				DEBUG_PRINT("Node IP Address is [");
+				DEBUG_PRINT(WiFi.softAPIP());
+				DEBUG_PRINT("]"CR);
 
 				og.state = OG_STATE_CONNECTED;
 
 			} else {
 				// otherwise startup STA mode to connect to the router
 				led_blink_ms = LED_SLOW_BLINK;
-				start_network_sta(og.options[OPTION_SSID].sval.c_str(), og.options[OPTION_PASS].sval.c_str());
-				connecting_timeout = millis() + 60000;
+				start_network_sta(config.json()["ssid"], config.json()["pass"]);
+				connecting_timeout = millis() + CONNECT_AP_TIMEOUT;
 
 				og.state = OG_STATE_CONNECTING;
 
@@ -755,7 +672,7 @@ void do_loop() {
 
 		case OG_STATE_TRY_CONNECT:
 			led_blink_ms = LED_SLOW_BLINK;
-			start_network_sta_with_ap(og.options[OPTION_SSID].sval.c_str(), og.options[OPTION_PASS].sval.c_str());    
+			start_network_sta_with_ap(config.json()["ssid"], config.json()["pass"]);    
 			og.state = OG_STATE_CONNECTED;
 			break;
 			
@@ -763,14 +680,14 @@ void do_loop() {
 			if(WiFi.status() == WL_CONNECTED) {
 				// use ap ssid as mdns name
 				if(MDNS.begin(get_ap_ssid().c_str())) {
-					Log.info("Registered MDNS as %s"CR, get_ap_ssid().c_str());
+					Log.info("Registered MDNS as [%s]"CR, get_ap_ssid().c_str());
 				}
 
 				og.state = OG_STATE_CONNECTED;
 				led_blink_ms = 0;
 				og.set_led(LOW);
 				
-				Log.info("Connected to AP [%s] as IP [%s]"CR, og.options[OPTION_SSID].sval.c_str(), get_ip().c_str());
+				Log.info("Connected to AP [%s] as IP [%s]"CR, config.json()["ssid"], get_ip().c_str());
 
 				og.state = OG_STATE_CONNECTED;
 
@@ -779,7 +696,11 @@ void do_loop() {
 				DEBUG_PRINT(".");
 				if(millis() > connecting_timeout) {
 					og.state = OG_STATE_INITIAL;
-					DEBUG_PRINTLN(F("timeout"));
+					// Switch to AP mode after unsuccessful connection attempt.
+					// Restarting the module will attempt to connect to the
+					// configured accesspoint again.
+					curr_mode = OG_MODE_AP;
+					Log.info("timeout!");
 				}
 			}
 			break;
@@ -799,7 +720,7 @@ void do_loop() {
 			
 		case OG_STATE_RESET:
 			og.state = OG_STATE_INITIAL;
-			DEBUG_PRINTLN(F("reset"));
+			Log.info("reset");
 			og.options_reset();
 			og.log_reset();
 			restart_timeout = millis() + 1000;
