@@ -22,8 +22,6 @@
 
 #include "OpenGarage.h"
 
-ulong OpenGarage::echo_time;
-byte  OpenGarage::state = OG_STATE_INITIAL;
 File  OpenGarage::log_file;
 uint OpenGarage::current_log_id;
 
@@ -64,9 +62,7 @@ void OpenGarage::begin() {
   pinMode(PIN_ECHO, INPUT);       // echo
   pinMode(PIN_CLOSED, INPUT_PULLUP); //closed sensor
   DEBUG_PRINTLN("ok!");
-  
-  state = OG_STATE_INITIAL;
-  
+    
   DEBUG_PRINT("Mounting SPIFFS...");
   if(!SPIFFS.begin()) {
     DEBUG_PRINTLN("failed!");
