@@ -19,7 +19,7 @@ class SMTPMailer{
 
 		WiFiClient client;
 
-		void setup(const char* server, int port, const char* user, const char* password);
+		void init(const char* server, int port, const char* user, const char* password);
 		byte send(const char* from, const char* to, const char* subject, const char* body);
 		byte awaitResponse();
 		void eFail();

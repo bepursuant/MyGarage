@@ -1,0 +1,3 @@
+====== TODO ======
+
+Fix blocking SMTP Mailer library. Maybe revert to Mail and SMTPClient lib?

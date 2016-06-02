@@ -46,9 +46,9 @@ void Logging::verbose(char* msg, ...){
  void Logging::print(const char *format, va_list args) {
     //
     // loop through format string
-    Serial.print("[");
-    Serial.print(millis());
-    Serial.print("] ");
+    //Serial.print("[");
+    //Serial.print(millis());
+    //Serial.print("] ");
     for (; *format != 0; ++format) {
         if (*format == '%') {
             ++format;

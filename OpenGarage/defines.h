@@ -87,6 +87,7 @@ typedef enum {
 #define LED_SLOW_BLINK 500
 
 #define TIME_SYNC_TIMEOUT  3600
+#define CONNECT_AP_TIMEOUT 30000
 
 /** Serial debug functions */
 #define SERIAL_DEBUG

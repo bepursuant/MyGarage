@@ -52,7 +52,8 @@ int main(int argc, char* argv[])
 		if(string::npos != startpos)
 		  line = line.substr(startpos);
 
-		outFile << line << "\r\n";
+		if(line.length()>0)
+			outFile << line << "\r\n";
 	}
 
 	outFile << ")=====\";\n";
