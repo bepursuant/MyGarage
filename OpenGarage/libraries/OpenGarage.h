@@ -25,8 +25,8 @@
 
 #include <Arduino.h>
 #include <FS.h>
-#include "defines.h"
 #include "Logging.h"
+#include "../defines.h";
 
 // define a struct to hold configuration options
 struct OptionStruct {
@@ -46,7 +46,6 @@ struct LogStruct {
 class OpenGarage {
 public:
   static OptionStruct options[];
-  static byte state;
   static uint current_log_id;
 
   static void begin();
@@ -82,7 +81,7 @@ public:
   static int find_option(String name);
 
 private:
-  static ulong echo_time;
+
   static ulong read_distance_once();
   static File log_file;
   static void button_handler();
