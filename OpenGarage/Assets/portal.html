@@ -7,7 +7,7 @@
 	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 
-	<title>OpenGarage</title>
+	<title class="name">OpenGarage</title>
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/1.11.8/semantic.min.css"/>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/1.11.8/semantic.min.js"></script>
@@ -17,7 +17,7 @@
 <body>
 
 	<div class="ui top attached menu">
-		<a href="/" class="header item">OpenGarage</a>
+		<a href="/" class="header item name">OpenGarage</a>
 		<a href="#/status" class="active item" data-tab="tab-status">
 			<i class="heartbeat icon"></i> Status
 		</a>
@@ -41,15 +41,25 @@
 			</div>
 
 			<!-- current status indicator -->
-			<div id="current-status" class="ui block header message">
-				<i class="lock icon"></i>
-				<div class="ui content">Door is <b id="lbl_status"></b>
-					<div class="sub header"><b id="lbl_time"></b></div>
+			<div id="current-status" class="ui items">
+				<div class="ui item">
+					<div class="ui small image">
+						<img src="/images/wireframe/image.png">
+					</div>
+					<div class="content">
+						<div class="header name">OpenGarage</div>
+						<div class="meta">
+							<b id="lbl_status"></b> at <b id="lbl_time"></b>
+						</div>
+						<div class="description">
+							<!-- door action button -->
+							<div id="door-button" class="ui massive button primary fluid">Toggle</div>
+						</div>
+					</div>
 				</div>
 			</div>
 
-			<!-- door action button -->
-			<div id="door-button" class="ui massive button primary fluid">Toggle</div>
+
 
 			<!-- history of door status -->
 			<div id="door-history"></div>
@@ -136,7 +146,7 @@
 					<div class="fields">
 						<div class="three wide field">
 							<label for="name">Device Name</label>
-							<input type="text" size=20 maxlength=32 id="name" name="name" value="">
+							<input type="text" size=20 maxlength=32 id="name" name="name" class="name" value="">
 						</div>
 
 						<div class="three wide field">
@@ -339,7 +349,7 @@
 						$("#dth").val(jd.dth);
 						$("#read_interval").val(jd.read_interval);
 						$("#http_port").val(jd.http_port);
-						$("#name").val(jd.name);
+						$(".name").val(jd.name);
 						$("#auth").val(jd.auth);
 
 						$("#smtp_notify_boot").prop("checked", jd.smtp_notify_boot == "on" ? 1 : 0);
@@ -398,9 +408,9 @@
 						type: auth_form.attr("method"),
 						url:  auth_form.attr("action"),
 						data: auth_form.serialize(),
-						success: function(auth) {
-							if(auth.result == "AUTH_SUCCESS"){
-								setCookie("OG_AUTH", auth.token, 0);
+						success: function(postAuth) {
+							if(postAuth.result == "AUTH_SUCCESS"){
+								setCookie("OG_TOKEN", postAuth.token, 0);
 
 								$("#auth_submit").removeClass("loading");
 								$("#login-modal").modal("hide");
@@ -416,7 +426,7 @@
 		 
 				});
 
-				if(!getCookie("OG_AUTH")){
+				if(!getCookie("OG_TOKEN")){
 					$("#login-modal").modal("show");//"setting","closable",false).modal("show");
 				}
 

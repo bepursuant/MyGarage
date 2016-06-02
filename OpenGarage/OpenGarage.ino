@@ -19,29 +19,30 @@
  * along with this program.  If not, see
  * <http://www.gnu.org/licenses/>.
  */
+#include <ArduinoJson.h>
+#include "defines.h";
+
+// compiled HTTP assets (basically just the portal)
+#include "Assets/compiled.h"
 
 // for logging all messages to (like a serial interface)
-#include "Logging.h"
+#include "libraries/Logging.h"
 #define LOGLEVEL LOGGING_VERBOSE
 Logging Log = Logging();
 
-#include "APWizard.h"
-#include <ArduinoJson.h>
-
-#include "OpenGarage.h"
-OpenGarage og;
-
 // for storing/retrieving configuration values in the file system
-#include "ConfigFile.h"
+#include "libraries/ConfigFile.h"
 ConfigFile config;
 
+// DEPRECATE for controlling the garage door
+#include "libraries/OpenGarage.h"
+OpenGarage og;
+
 // for sending email messages
-#include "SMTPMailer.h"
+#include "libraries/SMTPMailer.h"
 SMTPMailer mailer;
 
 ESP8266WebServer *server = NULL;
-
-static String scanned_ssids;
 
 static byte read_count = 0;
 static uint read_value = 0;
@@ -56,31 +57,28 @@ static byte curr_mode;
 // maximum 8 bits
 static byte door_status_hist = 0;
 
-static String token = "";
 
-// time stuff
+static String token = String(ESP.getChipId());
+// vars to store a utc timestamp or millis() for some timeconsuming operations
 static ulong last_utc = 0;		// stores the last synced UTC time
 static ulong last_ntp = 0;		// stores the last millis() we synced time with ntp
 static ulong last_status_check = 0;	// stores the last millis() we checked the door status
 static ulong last_status_change = 0;// stores the last utc the status changed
 
-void do_setup();
-
-
-// Define a few helper functions below for interacting with the 
+// define a few helper functions below for interacting with the 
 // server object, like sending html or json response headers
 // and content to the connected client, or rendering text
 void server_send_html(String html) { server->send(200, "text/html", html); }
 
 void server_send_json(String json){ server->send(200, "text/json", json); }
 
-void server_send_json(JsonObject root){
+void server_send_json(JsonObject& root){
 	String retJson;
 	root.printTo(retJson);
 	server->send(200, "text/json", retJson);
 }
 
-// send a validation result, including the result code [and item name]
+// DEPRECATE send a validation result, including the result code [and item name]
 void server_send_result(byte code, const char* item = NULL) {
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
@@ -95,28 +93,7 @@ void server_send_result(byte code, const char* item = NULL) {
 	server_send_json(retJson);
 }
 
-// The below are methods used to pull values from the requests GET
-// or POST variables by key. Add an overload to optionally pull
-// the value in as uint or String
-bool get_value_by_key(const char* key, uint& val) {
-	if(server->hasArg(key)) {
-		val = server->arg(key).toInt();   
-		return true;
-	} else {
-		return false;
-	}
-}
-
-bool get_value_by_key(const char* key, String& val) {
-	if(server->hasArg(key)) {
-		val = server->arg(key);   
-		return true;
-	} else {
-		return false;
-	}
-}
-
-// convert a decimal byte value into it's char
+// convert a decimal byte value into ASCII (hex)
 char dec2hexchar(byte dec) {
 	if(dec<10)
 		return '0'+dec;
@@ -124,7 +101,7 @@ char dec2hexchar(byte dec) {
 		return 'A'+(dec-10);
 }
 
-// grab the mac address as a decimal and return it as a string
+// grab the mac address as bytes and return it as a string
 String get_mac() {
 	static String hex = "";
 	if(!hex.length()) {
@@ -159,8 +136,8 @@ String get_ap_ssid() {
 	return ap_ssid;
 }
 
-// get the ip as an array of octets and return as a dotted decimal string
-String get_ip() {
+// get the ip as an array of bytes and return as a dotted decimal string
+String get_ap_ip() {
 	static String ip = "";
 	IPAddress _ip = WiFi.localIP();
 	ip = _ip[0];
@@ -173,12 +150,8 @@ String get_ip() {
 	return ip;
 }
 
-// validate if the correct device key was provided for protected commands
-bool verify_devicekey() {
-	if(server->hasArg("devicekey") && (server->arg("devicekey") == og.options[OPTION_DEVICEKEY].sval))
-		return true;
-}
-
+// authenticate the request using the cookie token that would have been sent
+// after the client calls /auth with a correct devicekey
 bool is_authenticated() {
 	if (server->hasHeader("Cookie")){   
 		String cookie = server->header("Cookie");
@@ -199,17 +172,9 @@ uint curr_utc_time(){
 	return last_utc + (millis() - last_ntp)/1000;
 }
 
-
 void on_get_index()
 {
-	String html = "";
-	
-	if(curr_mode == OG_MODE_AP) {
-		html += FPSTR(html_ap_home);
-	} else {
-		html += FPSTR(html_portal);
-	}
-
+	String html = FPSTR(html_portal);
 	server_send_html(html);
 }
 
@@ -304,11 +269,6 @@ void on_post_controller() {
 		og.click_relay();
 		server_send_result(HTML_SUCCESS);
 	}
-	if(server->hasArg("reboot")) {
-		restart_timeout = millis() + 1000;
-		og.state = OG_STATE_RESTART;
-		server_send_result(HTML_SUCCESS);
-	}
 }
 
 void on_post_auth() {
@@ -318,7 +278,6 @@ void on_post_auth() {
 
 	if(server->hasArg("auth_devicekey") && (server->arg("auth_devicekey") == og.options[OPTION_DEVICEKEY].sval)){
 		token = server->arg("auth_devicekey");
-
 		root["result"] = "AUTH_SUCCESS";
 		root["token"] = token;
 	} else {
@@ -350,45 +309,6 @@ void on_post_config() {
 	server_send_result(HTML_SUCCESS);
 }
 
-void on_json_networks() {
-	server_send_json(scanned_ssids);
-}
-
-void on_ap_change_config() {
-	if(server->hasArg("ssid")) {
-		og.options[OPTION_SSID].sval = server->arg("ssid");
-		og.options[OPTION_PASS].sval = server->arg("pass");
-		if(og.options[OPTION_SSID].sval.length() == 0) {
-			server_send_result(HTML_DATA_MISSING, "ssid");
-			return;
-		}
-		og.options_save();
-		og.state = OG_STATE_TRY_CONNECT;
-
-		server_send_result(HTML_SUCCESS);
-	}
-}
-
-void on_ap_try_connect() {
-
-	DynamicJsonBuffer jsonBuffer;
-	JsonObject& root = jsonBuffer.createObject();
-
-	root["ip"] = (WiFi.status() == WL_CONNECTED) ? (uint32_t)WiFi.localIP() : 0;
-
-	String retJson;
-	root.printTo(retJson);
-
-	server_send_json(retJson);
-
-	if(WiFi.status() == WL_CONNECTED && WiFi.localIP()) {
-		og.options[OPTION_MOD].ival = OG_MODE_STA;
-		og.options_save();  
-		restart_timeout = millis() + 2000;
-		og.state = OG_STATE_RESTART;
-	}
-}
-
 void process_ui()
 {
 	// process button
@@ -407,7 +327,7 @@ void process_ui()
 		if (button_down_time > 0) {
 			ulong curr = millis();
 			if(curr > button_down_time + BUTTON_RESET_TIMEOUT) {
-				og.state = OG_STATE_RESET;
+				//og.state = OG_STATE_RESET;
 			} else if(curr > button_down_time + 50) {
 				og.click_relay();
 			}
@@ -443,13 +363,6 @@ byte check_door_status_hist() {
 
 
 void on_sta_upload_fin() {
-	
-
-	if(!verify_devicekey()) {
-		server_send_result(HTML_UNAUTHORIZED);
-		//Update.reset();
-	}
-
 	// finish update and check error
 	if(!Update.end(true) || Update.hasError()) {
 		server_send_result(HTML_UPLOAD_FAILED);
@@ -458,7 +371,6 @@ void on_sta_upload_fin() {
 	
 	server_send_result(HTML_SUCCESS);
 	restart_timeout = millis() + 2000;
-	og.state = OG_STATE_RESTART;
 }
 
 void on_sta_upload() {
@@ -497,7 +409,6 @@ void time_keeping() {
 	// if we haven't synced yet, or if we've gone too long without syncing,
 	// lets synchronise time with the NTP server that we already set up.
 	if(!last_utc || millis() > last_ntp + (TIME_SYNC_TIMEOUT * 1000) ) {
-
 		ulong gt = time(nullptr);
 
 		if(gt){
@@ -583,13 +494,12 @@ void check_status() {
 	
 }
 
-void do_setup()
+void setup()
 {
 	Log.init(LOGLEVEL, 115200);
 
-	Log.verbose("Configuring NTP Time Servers...");
 	configTime(0, 0, "pool.ntp.org", "time.nist.org", NULL);
-	Log.verbose("ok!"CR);
+	Log.verbose("Configured NTP time servers %s and %s", "pool.ntp.org", "time.nist.org");
 
 	if(server) {
 		Log.verbose("Server object already existed during do_setup routine and has been erased.");
@@ -600,9 +510,35 @@ void do_setup()
 	og.begin();
 	og.options_setup();
 
-	curr_mode = og.get_mode();
 
+	// setup config file and pull in values for use via config.json()["item"] later
 	config.init("/jsoncfg.json");
+
+	//WiFiManager
+	//Local intialization. Once its business is done, there is no need to keep it around
+	WiFiManager wifiManager;
+
+	//wifiManager.resetSettings();
+
+	//set config save notify callback
+	//wifiManager.setSaveConfigCallback(saveConfigCallback);
+
+	//sets timeout until configuration portal gets turned off
+	//useful to make it all retry or go to sleep
+	//in seconds
+	//wifiManager.setTimeout(120);
+
+	//fetches ssid and pass and tries to connect
+	//if it does not connect it starts an access point with the specified name
+	//here  "AutoConnectAP"
+	//and goes into a blocking loop awaiting configuration
+	if (!wifiManager.autoConnect(config.json()["ssid"], config.json()["pass"])) {
+		Log.error("Failed to connect to AP [%s] with password [%s]", config.json()["ssid"], config.json()["pass"]);
+		delay(3000);
+		//reset and try again, or maybe put it to deep sleep
+		ESP.reset();
+		delay(5000);
+	}
 
 	if(!server) {
 		Log.info("Starting server on Port [%i]...", og.options[OPTION_HTTP_PORT].ival);
@@ -610,10 +546,6 @@ void do_setup()
 		server = new ESP8266WebServer(og.options[OPTION_HTTP_PORT].ival);
 
 		server->on("/",   on_get_index);    
-		server->on("/json/networks", on_json_networks);
-		server->on("/cc", on_ap_change_config);
-		server->on("/jt", on_ap_try_connect);
-
 		server->on("/portal", on_get_portal);
 		server->on("/auth", HTTP_POST, on_post_auth);
 		server->on("/update", HTTP_POST, on_sta_upload_fin, on_sta_upload);
@@ -622,15 +554,15 @@ void do_setup()
 		server->on("/json/logs", HTTP_GET, on_get_logs);
 		server->on("/json/status", HTTP_GET, on_get_status);
 
+		server->on("/json/controller", on_post_controller);
 		server->on("/json/controller", HTTP_GET, on_get_controller);
-		server->on("/json/controller", HTTP_POST, on_post_controller);
 
 		server->on("/json/config", HTTP_GET, on_get_config);
 		server->on("/json/config", HTTP_POST, on_post_config);
 
 
 		server->begin();
-		Log.info("ok!");
+		Log.info("ok!"CR);
 	}
 
 
@@ -639,95 +571,10 @@ void do_setup()
 
 }
 
-void do_loop() {
-	static ulong connecting_timeout;
-	
-	switch(og.state) {
+void loop() {
 
-		case OG_STATE_INITIAL:
-			scanned_ssids = scan_network();
+	server->handleClient();
 
-			if(curr_mode == OG_MODE_AP) {
-				// startup AP mode if we need configuration
-				String ap_ssid = get_ap_ssid();
-				start_network_ap(ap_ssid.c_str(), NULL);
-
-				DEBUG_PRINT("Node IP Address is [");
-				DEBUG_PRINT(WiFi.softAPIP());
-				DEBUG_PRINT("]"CR);
-
-				og.state = OG_STATE_CONNECTED;
-
-			} else {
-				// otherwise startup STA mode to connect to the router
-				led_blink_ms = LED_SLOW_BLINK;
-				start_network_sta(config.json()["ssid"], config.json()["pass"]);
-				connecting_timeout = millis() + CONNECT_AP_TIMEOUT;
-
-				og.state = OG_STATE_CONNECTING;
-
-			}
-			break;
-
-
-		case OG_STATE_TRY_CONNECT:
-			led_blink_ms = LED_SLOW_BLINK;
-			start_network_sta_with_ap(config.json()["ssid"], config.json()["pass"]);    
-			og.state = OG_STATE_CONNECTED;
-			break;
-			
-		case OG_STATE_CONNECTING:
-			if(WiFi.status() == WL_CONNECTED) {
-				// use ap ssid as mdns name
-				if(MDNS.begin(get_ap_ssid().c_str())) {
-					Log.info("Registered MDNS as [%s]"CR, get_ap_ssid().c_str());
-				}
-
-				og.state = OG_STATE_CONNECTED;
-				led_blink_ms = 0;
-				og.set_led(LOW);
-				
-				Log.info("Connected to AP [%s] as IP [%s]"CR, config.json()["ssid"], get_ip().c_str());
-
-				og.state = OG_STATE_CONNECTED;
-
-			} else {
-				delay(500);
-				DEBUG_PRINT(".");
-				if(millis() > connecting_timeout) {
-					og.state = OG_STATE_INITIAL;
-					// Switch to AP mode after unsuccessful connection attempt.
-					// Restarting the module will attempt to connect to the
-					// configured accesspoint again.
-					curr_mode = OG_MODE_AP;
-					Log.info("timeout!");
-				}
-			}
-			break;
-		
-		case OG_STATE_CONNECTED:
-			server->handleClient();
-			break;
-			
-		case OG_STATE_RESTART:
-			server->handleClient();
-			
-			if(millis() > restart_timeout) {
-				og.state = OG_STATE_INITIAL;
-				og.restart();
-			}
-			break;
-			
-		case OG_STATE_RESET:
-			og.state = OG_STATE_INITIAL;
-			Log.info("reset");
-			og.options_reset();
-			og.log_reset();
-			restart_timeout = millis() + 1000;
-			og.state = OG_STATE_RESTART;
-			break;
-	}
-	
 	time_keeping();
 
 	if(millis() > last_status_check + (og.options[OPTION_RIV].ival * 1000)) {
@@ -736,4 +583,9 @@ void do_loop() {
 	}
 
 	process_ui();
+}
+
+
+void saveConfigCallback() {
+  Serial.println("Should save config");
 }
