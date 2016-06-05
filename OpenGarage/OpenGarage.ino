@@ -59,6 +59,7 @@ static byte door_status_hist = 0;
 
 
 static String token = String(ESP.getChipId());
+
 // vars to store a utc timestamp or millis() for some timeconsuming operations
 static ulong last_utc = 0;		// stores the last synced UTC time
 static ulong last_ntp = 0;		// stores the last millis() we synced time with ntp
@@ -540,35 +541,34 @@ void setup()
 		delay(5000);
 	}
 
-	if(!server) {
-		Log.info("Starting server on Port [%i]...", og.options[OPTION_HTTP_PORT].ival);
-
-		server = new ESP8266WebServer(og.options[OPTION_HTTP_PORT].ival);
-
-		server->on("/",   on_get_index);    
-		server->on("/portal", on_get_portal);
-		server->on("/auth", HTTP_POST, on_post_auth);
-		server->on("/update", HTTP_POST, on_sta_upload_fin, on_sta_upload);
-
-
-		server->on("/json/logs", HTTP_GET, on_get_logs);
-		server->on("/json/status", HTTP_GET, on_get_status);
-
-		server->on("/json/controller", on_post_controller);
-		server->on("/json/controller", HTTP_GET, on_get_controller);
-
-		server->on("/json/config", HTTP_GET, on_get_config);
-		server->on("/json/config", HTTP_POST, on_post_config);
+	Log.info("Starting server on Port [%i]...", og.options[OPTION_HTTP_PORT].ival);
+	server = new ESP8266WebServer(og.options[OPTION_HTTP_PORT].ival);
+	server->on("/",   on_get_index);    
+	server->on("/portal", on_get_portal);
+	server->on("/auth", HTTP_POST, on_post_auth);
+	server->on("/update", HTTP_POST, on_sta_upload_fin, on_sta_upload);
+	server->on("/json/logs", HTTP_GET, on_get_logs);
+	server->on("/json/status", HTTP_GET, on_get_status);
+	server->on("/json/controller", on_post_controller);
+	server->on("/json/controller", HTTP_GET, on_get_controller);
+	server->on("/json/config", HTTP_GET, on_get_config);
+	server->on("/json/config", HTTP_POST, on_post_config);
+	server->begin();
+	Log.info("ok!"CR);
 
 
-		server->begin();
-		Log.info("ok!"CR);
-	}
-
-
+	// configure the SMTP mailer
 	mailer.init(config.json()["smtp_host"], config.json()["smtp_port"], config.json()["smtp_user"], config.json()["smtp_pass"]);
 
-
+	// pull inthe last known door status so that we don't mistakenly send
+	// a notification that a door event has occurred if the power was 
+	// just cycled.
+	Log.info("Reading most recent log item %i ...", og.current_log_id);
+	LogStruct current_log;
+	og.read_log(current_log, og.current_log_id);
+	Log.info("got tstamp [%i] status [%i] value [%i]...", current_log.tstamp, current_log.status, current_log.value);
+	door_status_hist = (current_log.status == 1 ? 0b1111 : 0b0000);
+	Log.info("ok!");
 }
 
 void loop() {
