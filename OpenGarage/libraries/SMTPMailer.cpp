@@ -6,6 +6,9 @@
 #include "SMTPMailer.h"
 
 void SMTPMailer::init(const char* server, int port, const char* user, const char* password){
+	if(!server || !port || !user || !password)
+		return;
+
 	this->smtp_host = server;
 	this->smtp_port = port;
 	this->smtp_user = user;
@@ -14,6 +17,9 @@ void SMTPMailer::init(const char* server, int port, const char* user, const char
 
 byte SMTPMailer::send(const char* from, const char* to, const char* subject, const char* body)
 {
+	if(!from || !to || !subject || !body)
+		return 0;
+
 	Log.info("Sending email From [%s] To [%s] Subject [%s]"CR, from, to, subject);
 
 	byte thisByte = 0;

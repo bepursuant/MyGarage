@@ -44,10 +44,21 @@
 #define PIN_CLOSED D7
 #define PIN_RESET  D8
 
-// Default device name
 #define DEFAULT_NAME    "My OpenGarage"
-// Default device key
 #define DEFAULT_DEVICEKEY    "opendoor"
+#define DEFAULT_DTH 50
+#define DEFAULT_READ_INTERVAL 4
+#define DEFAULT_HTTP_PORT 80
+#define DEFAULT_SMTP_NOTIFY_BOOT 0
+#define DEFAULT_SMTP_NOTIFY_STATUS 0
+#define DEFAULT_SMTP_HOST ""
+#define DEFAULT_SMTP_PORT 0
+#define DEFAULT_SMTP_USER ""
+#define DEFAULT_SMTP_PASS ""
+#define DEFAULT_SMTP_FROM ""
+#define DEFAULT_SMTP_TO ""
+
+
 // Config file name
 #define CONFIG_FNAME    "/config.dat"
 // Log file name
@@ -90,19 +101,6 @@
 #define HTML_UPLOAD_FAILED     0x40
 #define HTML_REDIRECT_HOME     0xFF
 
-typedef enum {
-	OPTION_FIRMWARE_VERSION = 0, // firmware version
-	OPTION_SENSOR_TYPE,			// sensor type
-	OPTION_DTH,					// distance threshold
-	OPTION_RIV,					// read interval
-	OPTION_HTTP_PORT,			// http port
-	OPTION_MOD,					// mode
-	OPTION_SSID,				// wifi ssid
-	OPTION_PASS,				// wifi password
-	OPTION_DEVICEKEY,			// device key
-	OPTION_NAME,				// device name
-	NUM_OPTIONS					// number of options
-} OG_OPTION_enum;
 
 #define BUTTON_RESET_TIMEOUT  4000  // if button is pressed for at least 5 seconds, reset
 #define LED_FAST_BLINK 100

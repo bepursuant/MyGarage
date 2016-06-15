@@ -28,14 +28,6 @@
 #include "Logging.h"
 #include "../defines.h";
 
-// define a struct to hold configuration options
-struct OptionStruct {
-  String name;  // option name (identifier)
-  uint ival;    // option integer value
-  uint max;     // maximum value
-  String sval;  // option String value
-}; 
-
 // to hold status logs
 struct LogStruct {
   ulong tstamp; // time stamp
@@ -45,16 +37,10 @@ struct LogStruct {
 
 class OpenGarage {
 public:
-  static OptionStruct options[];
   static uint current_log_id;
 
   static void begin();
   static void restart() { digitalWrite(PIN_RESET, LOW); }
-
-  static void options_setup();
-  static void options_load();
-  static void options_save();
-  static void options_reset();
 
   static void log_reset();
   static void write_log(const LogStruct& data);
@@ -64,7 +50,6 @@ public:
   static bool read_log_end();
 
   static uint read_distance(); // centimeter
-  static byte get_mode()   { return options[OPTION_MOD].ival; }
   static byte get_button() { return digitalRead(PIN_BUTTON); }
   static byte get_led()    { return digitalRead(PIN_LED); }
 
@@ -77,8 +62,6 @@ public:
   }
   static bool open();
   static bool close();
-
-  static int find_option(String name);
 
 private:
 
