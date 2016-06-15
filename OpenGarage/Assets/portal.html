@@ -71,7 +71,7 @@
 						$("#door-button").addClass('loading');
 						clear_msg();
 
-						$.get("json/controller?click=1", function(postController) {
+						$.getJSON("json/controller?click=1", function(postController) {
 							$("#door-button").removeClass('loading');
 							if(postController.result != 1) {
 								show_msg("Check device key and try again.",2000,"red");
@@ -231,45 +231,18 @@
 						</div>
 					</div>
 
-					<div class="fields">
-						<div class="six wide field">
-							<div class="twelve wide field">
-								<div class="ui checkbox">
-									<input type="hidden" name="smtp_notify_status" value="0" />
-									<input type="checkbox" id="smtp_notify_status" name="smtp_notify_status" value="1" />
-									<label for="smtp_notify_status">Send Email on Door Status Change</label>
-								</div>
-							</div>
-
-							<div class="twelve wide field">
-								<label for="smtp_notify_status_subject">Door Status Change Email Subject</label>
-								<input type="text" id="smtp_notify_status_subject" name="smtp_notify_status_subject" />
-							</div>
-
-							<div class="twelve wide field">
-								<label for="smtp_notify_status_body">Door Status Change Email Body</label>
-								<textarea id="smtp_notify_status_body" name="smtp_notify_status_body"></textarea>
-							</div>
+					<div class="grouped fields">
+						<label>Email Notifications</label>
+						<div class="field ui checkbox">
+							<input type="hidden" name="smtp_notify_status" value="0" />
+							<input type="checkbox" id="smtp_notify_status" name="smtp_notify_status" value="0" />
+							<label for="smtp_notify_status">Send Email on Door Status Change</label>
 						</div>
 
-						<div class="six wide field">
-							<div class="twelve wide field">
-								<div class="ui checkbox">
-									<input type="hidden" name="smtp_notify_status" value="0" />
-									<input type="checkbox" id="smtp_notify_boot" name="smtp_notify_boot" value="1" />
-									<label for="smtp_notify_boot">Send Email on Boot/Reboot</label>
-								</div>
-							</div>
-
-							<div class="twelve wide field">
-								<label for="smtp_notify_boot_subject">Boot/Reboot Email Subject</label>
-								<input type="text" id="smtp_notify_boot_subject" name="smtp_notify_boot_subject" />
-							</div>
-
-							<div class="twelve wide field">
-								<label for="smtp_notify_boot_body">Boot/Reboot Email Body</label>
-								<textarea id="smtp_notify_boot_body" name="smtp_notify_boot_body"></textarea>
-							</div>
+						<div class="field ui checkbox">
+							<input type="hidden" name="smtp_notify_status" value="0" />
+							<input type="checkbox" id="smtp_notify_boot" name="smtp_notify_boot" value="0" />
+							<label for="smtp_notify_boot">Send Email on Boot/Reboot</label>
 						</div>
 					</div>
 				</div>
@@ -343,25 +316,25 @@
 				function refresh_config() {
 					$("#config_form").addClass("loading");
 					$("#config_refresh i").addClass("loading");
-					$.getJSON("/json/config", function(jd) {
-						$("#firmware_version").text("v"+(jd.firmware_version/100>>0)+"."+(jd.firmware_version/10%10>>0)+"."+(jd.firmware_version%10>>0));
-						$("#sensor_type").val(jd.sensor_type);
-						$("#dth").val(jd.dth);
-						$("#read_interval").val(jd.read_interval);
-						$("#http_port").val(jd.http_port);
-						$(".name").val(jd.name);
-						$("#auth").val(jd.auth);
+					$.getJSON("/json/config", function(jsonConfig) {
+						$("#firmware_version").text("v"+(jsonConfig.config.firmware_version/100>>0)+"."+(jsonConfig.config.firmware_version/10%10>>0)+"."+(jsonConfig.config.firmware_version%10>>0));
+						$("#sensor_type").val(jsonConfig.config.sensor_type);
+						$("#dth").val(jsonConfig.config.dth);
+						$("#read_interval").val(jsonConfig.config.read_interval);
+						$("#http_port").val(jsonConfig.config.http_port);
+						$(".name").val(jsonConfig.config.name);
+						$("#auth").val(jsonConfig.config.auth);
 
-						$("#smtp_notify_boot").prop("checked", jd.smtp_notify_boot == "on" ? 1 : 0);
-						$("#smtp_notify_status").prop("checked", jd.smtp_notify_status == "on" ? 1 : 0);
+						$("#smtp_notify_boot").prop("checked", jsonConfig.config.smtp_notify_boot == "on" ? 1 : 0);
+						$("#smtp_notify_status").prop("checked", jsonConfig.config.smtp_notify_status == "on" ? 1 : 0);
 
-						$("#smtp_host").val(jd.smtp_host);
-						$("#smtp_port").val(jd.smtp_port);
-						$("#smtp_user").val(jd.smtp_user);
-						$("#smtp_pass").val(jd.smtp_pass);
-						$("#smtp_from").val(jd.smtp_from);
-						$("#smtp_to").val(jd.smtp_to);
-						$("#smtp_subject").val(jd.smtp_subject);
+						$("#smtp_host").val(jsonConfig.config.smtp_host);
+						$("#smtp_port").val(jsonConfig.config.smtp_port);
+						$("#smtp_user").val(jsonConfig.config.smtp_user);
+						$("#smtp_pass").val(jsonConfig.config.smtp_pass);
+						$("#smtp_from").val(jsonConfig.config.smtp_from);
+						$("#smtp_to").val(jsonConfig.config.smtp_to);
+						$("#smtp_subject").val(jsonConfig.config.smtp_subject);
 
 						$("#config_form").removeClass("loading");
 						$("#config_refresh i").removeClass("loading");

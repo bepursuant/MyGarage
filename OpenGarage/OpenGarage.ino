@@ -19,7 +19,7 @@
  * along with this program.  If not, see
  * <http://www.gnu.org/licenses/>.
  */
-#include <ArduinoJson.h>
+
 #include "defines.h";
 
 // compiled HTTP assets (basically just the portal)
@@ -31,8 +31,24 @@
 Logging Log = Logging();
 
 // for storing/retrieving configuration values in the file system
-#include "libraries/ConfigFile.h"
-ConfigFile config;
+#include "libraries/Configuration.h"
+ConfigurationStruct configStruct[] = {
+	{"name", DEFAULT_NAME},
+	{"devicekey", DEFAULT_DEVICEKEY},
+	{"http_port", DEFAULT_HTTP_PORT},
+	{"dth", DEFAULT_DTH},
+	{"read_interval", DEFAULT_READ_INTERVAL},
+	{"sensor_type", OG_SENSOR_ULTRASONIC_CEILING},
+	{"smtp_notify_boot", DEFAULT_SMTP_NOTIFY_BOOT},
+	{"smtp_notify_status", DEFAULT_SMTP_NOTIFY_STATUS},
+	{"smtp_host", DEFAULT_SMTP_HOST},
+	{"smtp_port", DEFAULT_SMTP_PORT},
+	{"smtp_user", DEFAULT_SMTP_USER},
+	{"smtp_pass", DEFAULT_SMTP_PASS},
+	{"smtp_from", DEFAULT_SMTP_FROM},
+	{"smtp_to", DEFAULT_SMTP_TO}
+};
+Configuration config(configStruct);
 
 // DEPRECATE for controlling the garage door
 #include "libraries/OpenGarage.h"
@@ -52,11 +68,9 @@ static uint led_blink_ms = LED_FAST_BLINK;
 static ulong restart_timeout = 0;
 static byte curr_mode;
 
-
 // this is one byte storing the door status histogram
 // maximum 8 bits
 static byte door_status_hist = 0;
-
 
 static String token = String(ESP.getChipId());
 
@@ -189,15 +203,15 @@ void on_get_controller() {
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 
-	root["read_value"] = read_value;
-	root["door_status"] = door_status;
-	root["last_status_change"] = last_status_change;
-	root["read_count"] = read_count;
-	root["firmware_version"] = og.options[OPTION_FIRMWARE_VERSION].ival;
-	root["name"] = og.options[OPTION_NAME].sval;
-	root["sensor_type"] = og.options[OPTION_SENSOR_TYPE].ival;
+	root["read_value"] = (int)read_value;
+	root["door_status"] = (int)door_status;
+	root["last_status_change"] = (int)last_status_change;
+	root["read_count"] = (int)read_count;
+	root["firmware_version"] = (int)OG_FIRMWARE_VERSION;
+	root["name"] = config.get("name")->sval;
+	root["sensor_type"] = config.get("sensor_type")->ival;
 	root["mac"] = get_mac();
-	root["cid"] = ESP.getChipId();
+	root["cid"] = (int)ESP.getChipId();
 	
 	String retJson;
 	root.printTo(retJson);
@@ -209,8 +223,8 @@ void on_get_logs() {
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 
-	root["name"] = og.options[OPTION_NAME].sval;
-	root["time"] = curr_utc_time();
+	root["name"] = config.get("name")->sval;
+	root["time"] = (int)curr_utc_time();
 
 	JsonArray& logs = root.createNestedArray("logs");
  
@@ -222,9 +236,9 @@ void on_get_logs() {
 		//if(!l.tstamp) continue;
 
 		JsonObject& lg = logs.createNestedObject();
-		lg["tstamp"] = l.tstamp;
-		lg["status"] = l.status;
-		lg["read_value"] = l.value;
+		lg["tstamp"] = (int)l.tstamp;
+		lg["status"] = (int)l.status;
+		lg["read_value"] = (int)l.value;
 	}
 
 	og.read_log_end();
@@ -236,9 +250,46 @@ void on_get_logs() {
 }
 
 void on_get_config() {
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject& root = jsonBuffer.createObject();
+
+	JsonObject& conf = root.createNestedObject("config");
+
+	conf["name"] = config.get("name")->sval;
+	conf["devicekey"] = config.get("devicekey")->sval;
+	conf["http_port"] = config.get("http_port")->ival;
+	conf["dth"] = config.get("dth")->ival;
+	conf["read_interval"] = config.get("read_interval")->ival;
+	conf["sensor_type"] = config.get("sensor_type")->ival;
+	conf["smtp_notify_boot"] = config.get("smtp_notify_boot")->ival;
+	conf["smtp_notify_status"] = config.get("smtp_notify_status")->ival;
+	conf["smtp_host"] = config.get("smtp_host")->sval;
+	conf["smtp_port"] = config.get("smtp_port")->ival;
+	conf["smtp_user"] = config.get("smtp_user")->sval;
+	conf["smtp_pass"] = config.get("smtp_pass")->sval;
+	conf["smtp_from"] = config.get("smtp_from")->sval;
+	conf["smtp_to"] = config.get("smtp_to")->sval;
+
 	String retJson;
-	config.json().printTo(retJson);
+	root.printTo(retJson);
+
 	server_send_json(retJson);
+}
+
+void on_post_config() {
+	// Go through the posted arguments and save them to the configuration object
+	int numConfigs = sizeof(configStruct);
+	for(int i=0; i<numConfigs; i++){
+		const char* name = configStruct[i].name;
+		if(server->hasArg(name)){
+			config.set(name, server->arg(name));
+		}
+	}
+
+	// then write the changes to the FS
+	//config.save();
+	
+	server_send_result(HTML_SUCCESS);
 }
 
 void on_get_status(){
@@ -248,16 +299,16 @@ void on_get_status(){
 	JsonObject& status = root.createNestedObject("status");
 
 
-	status["read_value"] = read_value;
-	status["door_status"] = door_status;
-	status["last_status_change"] = last_status_change;
+	status["read_value"] = (int)read_value;
+	status["door_status"] = (int)door_status;
+	status["last_status_change"] = (int)last_status_change;
 	status["read_count"] = read_count;
-	status["firmware_version"] = og.options[OPTION_FIRMWARE_VERSION].ival;
-	status["name"] = og.options[OPTION_NAME].sval;
+	status["firmware_version"] = (int)OG_FIRMWARE_VERSION;
+	status["name"] = config.get("name")->sval;
 	status["mac"] = get_mac();
-	status["heap"] = ESP.getFreeHeap();
-	status["chipId"] = ESP.getChipId();
-	status["curr_utc_time"] = curr_utc_time();
+	status["heap"] = (int)ESP.getFreeHeap();
+	status["chipId"] = (int)ESP.getChipId();
+	status["curr_utc_time"] = (int)curr_utc_time();
 
 	String retJson;
 	root.printTo(retJson);
@@ -277,7 +328,7 @@ void on_post_auth() {
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 
-	if(server->hasArg("auth_devicekey") && (server->arg("auth_devicekey") == og.options[OPTION_DEVICEKEY].sval)){
+	if(server->hasArg("auth_devicekey") && (server->arg("auth_devicekey") == config.get("devicekey")->sval)){
 		token = server->arg("auth_devicekey");
 		root["result"] = "AUTH_SUCCESS";
 		root["token"] = token;
@@ -290,24 +341,6 @@ void on_post_auth() {
 
 	server_send_json(retJson);
 
-}
-
-// POST /json/options - save configuration
-void on_post_config() {
-
-	// Go through the posted arguments and save them to the configuration object
-	int numArgs = server->args();
-
-	for(byte i=0; i<numArgs; i++){
-		String aKey = server->argName(i);
-		String aVal = server->arg(i);
-		config.json()[aKey] = aVal;
-	}
-
-	// then write the changes to the FS
-	config.save();
-	
-	server_send_result(HTML_SUCCESS);
 }
 
 void process_ui()
@@ -428,47 +461,36 @@ void time_keeping() {
 // check the status of the door based on the sensor type
 void check_status() {
 
-	switch(og.options[OPTION_SENSOR_TYPE].ival){
+	switch(config.get("sensor_type")->ival){
 
 		case OG_SENSOR_ULTRASONIC_SIDE:
 		case OG_SENSOR_ULTRASONIC_CEILING:
 			// check the door status using an ultrasonic distance sensor
-
-			DEBUG_PRINT("Reading Distance...");
-			// read the distance from the sensor - let og do this because
-			// it will actually give us the average of three reads
 			read_value = og.read_distance();
-			DEBUG_PRINT("got ");
-			DEBUG_PRINT(read_value);
-			Log.info("cm...ok!");
 
 			//not sure what this is really for...
 			read_count = (read_count+1)%100;
 
 			// determine based on the current reading if the door is open or closed
-			door_status = (read_value > og.options[OPTION_DTH].ival) ? 0 : 1;
+			door_status = (read_value > config.get("dth")->ival) ? 0 : 1;
 
 			// reverse logic for side mount
-			if (og.options[OPTION_SENSOR_TYPE].ival == OG_SENSOR_ULTRASONIC_SIDE)    
+			if (config.get("sensor_type")->ival == OG_SENSOR_ULTRASONIC_SIDE)    
 				door_status = 1-door_status;
 		
 		break;
 
 		case OG_SENSOR_MAGNETIC_CLOSED:
-			// check the door status using a single magentic sensor in the closed position
-			//DEBUG_PRINT("Checking open sensor...");
-			
+			// check the door status using a single magentic sensor in the closed position			
 			read_value = door_status = digitalRead(PIN_CLOSED);
 
 			//not sure what this is really for...
-			read_count = (read_count+1)%100;
-
-			//DEBUG_PRINT("got ");
-			//DEBUG_PRINT(door_status);
-			//Log.info("...ok!");
+			read_count = (read_count+1)%255;
 
 		break;
 	}
+
+	Log.info("Read door status read_count [%i] read_value [%i]"CR, read_count, read_value);
 
 	// tack this status onto the histogram and find out what 'just happened'
 	door_status_hist = (door_status_hist<<1) | door_status;
@@ -485,35 +507,31 @@ void check_status() {
 		og.write_log(l);
 
 
-		//Log.info("Door Changed to %s", l.status);
+		//Log.info("Door Status Changed to [%s]", door_status);
 
 		// module : email alerts
-		//if((bool)config.json()["smtp_notify_status"]){
-			mailer.send(config.json()["smtp_from"], config.json()["smtp_to"], config.json()["smtp_subject"], (char*)last_status_change);
+		//if((bool)config.get("smtp_notify_status"]){
+		//	mailer.send(config.get("smtp_from"], config.get("smtp_to"], config.get("smtp_subject"], (char*)last_status_change);
 		//}
 	}
-	
+
 }
 
 void setup()
 {
+	//SPIFFS.format();
 	Log.init(LOGLEVEL, 115200);
 
 	configTime(0, 0, "pool.ntp.org", "time.nist.org", NULL);
-	Log.verbose("Configured NTP time servers %s and %s", "pool.ntp.org", "time.nist.org");
+	Log.verbose("Configured NTP time servers %s and %s"CR, "pool.ntp.org", "time.nist.org");
 
 	if(server) {
-		Log.verbose("Server object already existed during do_setup routine and has been erased.");
+		Log.verbose("Server object already existed during do_setup routine and has been erased."CR);
 		delete server;
 		server = NULL;
 	}
 
 	og.begin();
-	og.options_setup();
-
-
-	// setup config file and pull in values for use via config.json()["item"] later
-	config.init("/jsoncfg.json");
 
 	//WiFiManager
 	//Local intialization. Once its business is done, there is no need to keep it around
@@ -533,16 +551,16 @@ void setup()
 	//if it does not connect it starts an access point with the specified name
 	//here  "AutoConnectAP"
 	//and goes into a blocking loop awaiting configuration
-	if (!wifiManager.autoConnect(config.json()["ssid"], config.json()["pass"])) {
-		Log.error("Failed to connect to AP [%s] with password [%s]", config.json()["ssid"], config.json()["pass"]);
+	if (!wifiManager.autoConnect(config.get("ssid")->sval.c_str(), config.get("pass")->sval.c_str())) {
+		Log.error("Failed to connect to AP [%s] with password [%s]"CR, config.get("ssid")->sval.c_str(), config.get("pass")->sval.c_str());
 		delay(3000);
 		//reset and try again, or maybe put it to deep sleep
 		ESP.reset();
 		delay(5000);
 	}
 
-	Log.info("Starting server on Port [%i]...", og.options[OPTION_HTTP_PORT].ival);
-	server = new ESP8266WebServer(og.options[OPTION_HTTP_PORT].ival);
+	Log.info("Starting server on Port [%i]...", config.get("http_port")->ival);
+	server = new ESP8266WebServer(config.get("http_port")->ival);
 	server->on("/",   on_get_index);    
 	server->on("/portal", on_get_portal);
 	server->on("/auth", HTTP_POST, on_post_auth);
@@ -558,7 +576,7 @@ void setup()
 
 
 	// configure the SMTP mailer
-	mailer.init(config.json()["smtp_host"], config.json()["smtp_port"], config.json()["smtp_user"], config.json()["smtp_pass"]);
+	mailer.init(config.get("smtp_host")->sval.c_str(), config.get("smtp_port")->ival, config.get("smtp_user")->sval.c_str(), config.get("smtp_pass")->sval.c_str());
 
 	// pull inthe last known door status so that we don't mistakenly send
 	// a notification that a door event has occurred if the power was 
@@ -568,7 +586,10 @@ void setup()
 	og.read_log(current_log, og.current_log_id);
 	Log.info("got tstamp [%i] status [%i] value [%i]...", current_log.tstamp, current_log.status, current_log.value);
 	door_status_hist = (current_log.status == 1 ? 0b1111 : 0b0000);
-	Log.info("ok!");
+	Log.info("ok!"CR);
+
+	Log.info("OpenGarage is booted and going into monitor mode. Read Interval [%i] Sensor Type [%i]"CR, (config.get("read_interval")->ival * 1000), config.get("sensor_type")->ival);
+
 }
 
 void loop() {
@@ -577,7 +598,7 @@ void loop() {
 
 	time_keeping();
 
-	if(millis() > last_status_check + (og.options[OPTION_RIV].ival * 1000)) {
+	if(millis() > last_status_check + (config.get("read_interval")->ival * 1000)) {
 		last_status_check = millis();
 		check_status();
 	}
