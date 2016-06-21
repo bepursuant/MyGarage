@@ -20,18 +20,18 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-#include "defines.h";
+#include "defines.h"
 
 // compiled HTTP assets (basically just the portal)
-#include "Assets/compiled.h"
+#include "Assets/CompiledAssets.h"
 
 // for logging all messages to (like a serial interface)
-#include "libraries/Logging.h"
+#include "Libraries/Logging.h"
 #define LOGLEVEL LOGGING_VERBOSE
 Logging Log = Logging();
 
 // for storing/retrieving configuration values in the file system
-#include "libraries/Configuration.h"
+#include "Libraries/Configuration.h"
 ConfigurationStruct configStruct[] = {
 	{"name", DEFAULT_NAME},
 	{"devicekey", DEFAULT_DEVICEKEY},
@@ -51,11 +51,11 @@ ConfigurationStruct configStruct[] = {
 Configuration config(configStruct);
 
 // DEPRECATE for controlling the garage door
-#include "libraries/OpenGarage.h"
+#include "Libraries/OpenGarage.h"
 OpenGarage og;
 
 // for sending email messages
-#include "libraries/SMTPMailer.h"
+#include "Libraries/SMTPMailer.h"
 SMTPMailer mailer;
 
 ESP8266WebServer *server = NULL;
@@ -551,12 +551,12 @@ void setup()
 	//if it does not connect it starts an access point with the specified name
 	//here  "AutoConnectAP"
 	//and goes into a blocking loop awaiting configuration
-	if (!wifiManager.autoConnect(config.get("ssid")->sval.c_str(), config.get("pass")->sval.c_str())) {
-		Log.error("Failed to connect to AP [%s] with password [%s]"CR, config.get("ssid")->sval.c_str(), config.get("pass")->sval.c_str());
-		delay(3000);
+	if (!wifiManager.autoConnect()){
+		Log.error("Failed to connect to AP...nok!"CR);
+		delay(300000);
 		//reset and try again, or maybe put it to deep sleep
 		ESP.reset();
-		delay(5000);
+		delay(500000);
 	}
 
 	Log.info("Starting server on Port [%i]...", config.get("http_port")->ival);

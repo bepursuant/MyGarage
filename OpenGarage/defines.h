@@ -19,7 +19,6 @@
  * along with this program.  If not, see
  * <http://www.gnu.org/licenses/>.
  */
-
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
@@ -52,7 +51,7 @@
 #define DEFAULT_SMTP_NOTIFY_BOOT 0
 #define DEFAULT_SMTP_NOTIFY_STATUS 0
 #define DEFAULT_SMTP_HOST ""
-#define DEFAULT_SMTP_PORT 0
+#define DEFAULT_SMTP_PORT 587
 #define DEFAULT_SMTP_USER ""
 #define DEFAULT_SMTP_PASS ""
 #define DEFAULT_SMTP_FROM ""

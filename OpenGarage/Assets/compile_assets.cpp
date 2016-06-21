@@ -17,7 +17,7 @@ int main(int argc, char* argv[])
 	}
 
 	// output file name - hard coded for now, could easily be an input
-	char oname[] = "compiled.h";
+	char oname[] = "CompiledAssets.h";
 
 	// open a pointer to the input file and if we can't, toss a wobbly
 	ifstream inFile (argv[1]);
