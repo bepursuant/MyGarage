@@ -20,55 +20,55 @@ byte SMTPMailer::send(const char* from, const char* to, const char* subject, con
 	if(!from || !to || !subject || !body)
 		return 0;
 
-	Log.info("Sending email From [%s] To [%s] Subject [%s]"CR, from, to, subject);
+	Log.info("Sending email From [%s] To [%s] Subject [%s]\r\n", from, to, subject);
 
 	byte thisByte = 0;
 	byte respCode;
 
 	if(client.connect(this->smtp_host, this->smtp_port)) {
-		Log.verbose("Connected to Host:%s Port:%i"CR, this->smtp_host, this->smtp_port);
+		Log.verbose("Connected to Host:%s Port:%i\r\n", this->smtp_host, this->smtp_port);
 	} else {
-		Log.error("Could not connect to Host [%s] Port:[%i]"CR, this->smtp_host, this->smtp_port);
+		Log.error("Could not connect to Host [%s] Port:[%i]\r\n", this->smtp_host, this->smtp_port);
 		return 0;
 	}
 
 	if(!awaitResponse()) return 0;
 
-	Log.verbose("Sending EHLO"CR);
+	Log.verbose("Sending EHLO\r\n");
 	client.printf("EHLO %s\r\n", this->smtp_host);	//change to your public ip
 
 	if(!awaitResponse()) return 0;
 
-	Log.verbose("Sending AUTH LOGIN"CR);
+	Log.verbose("Sending AUTH LOGIN\r\n");
 	client.println("AUTH LOGIN");
 	if(!awaitResponse()) return 0;
 
-	Log.verbose("Sending User"CR);
+	Log.verbose("Sending User\r\n");
 	client.println(base64::encode(this->smtp_user));
 
 	if(!awaitResponse()) return 0;
 
-	Log.verbose("Sending Password"CR);
+	Log.verbose("Sending Password\r\n");
 	client.println(base64::encode(this->smtp_pass));
 
 	if(!awaitResponse()) return 0;
 
-	Log.verbose("Sending From"CR);
+	Log.verbose("Sending From\r\n");
 	client.printf("MAIL From: <%s>\r\n", from);	// change to your email address (sender)
 
 	if(!awaitResponse()) return 0;
 
-	Log.verbose("Sending To"CR);
+	Log.verbose("Sending To\r\n");
 	client.printf("RCPT To: <%s>\r\n", to);	// change to recipient address
 
 	if(!awaitResponse()) return 0;
 
-	Log.verbose("Sending DATA"CR);
+	Log.verbose("Sending DATA\r\n");
 	client.write("DATA\r\n");
 
 	if(!awaitResponse()) return 0;
 
-	Log.verbose("Sending Message"CR);
+	Log.verbose("Sending Message\r\n");
 
 	client.printf("To: %s\r\n", to);	// change to recipient address
 
@@ -80,17 +80,17 @@ byte SMTPMailer::send(const char* from, const char* to, const char* subject, con
 
 	client.write(".\r\n");
 
-	Log.debug("Message Sent"CR);
+	Log.debug("Message Sent\r\n");
 
 	if(!awaitResponse()) return 0;
 
-	Log.verbose("Sending QUIT"CR);
+	Log.verbose("Sending QUIT\r\n");
 	client.write("QUIT\r\n");
 
 	if(!awaitResponse()) return 0;
 
 	client.stop();
-	Log.verbose("Disconnected"CR);
+	Log.verbose("Disconnected\r\n");
 
 	return 1;
 }
@@ -110,7 +110,7 @@ byte SMTPMailer::awaitResponse()
 		// if nothing received for 10 seconds, timeout
 		if(loopCount > 10000) {
 			client.stop();
-			Log.verbose("\r\nTimeout"CR);
+			Log.verbose("\r\nTimeout\r\n");
 			return 0;
 		}
 	}
@@ -146,7 +146,7 @@ void SMTPMailer::eFail()
 		// if nothing received for 10 seconds, timeout
 		if(loopCount > 10000) {
 			client.stop();
-			Log.verbose("\r\nTimeout"CR);
+			Log.verbose("\r\nTimeout\r\n");
 			return;
 		}
 	}
@@ -158,5 +158,5 @@ void SMTPMailer::eFail()
 	}
 
 	client.stop();
-	Log.verbose("Disconnected"CR);
+	Log.verbose("Disconnected\r\n");
 }

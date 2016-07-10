@@ -317,24 +317,24 @@
 					$("#config_form").addClass("loading");
 					$("#config_refresh i").addClass("loading");
 					$.getJSON("/json/config", function(jsonConfig) {
-						$("#firmware_version").text("v"+(jsonConfig.config.firmware_version/100>>0)+"."+(jsonConfig.config.firmware_version/10%10>>0)+"."+(jsonConfig.config.firmware_version%10>>0));
-						$("#sensor_type").val(jsonConfig.config.sensor_type);
-						$("#dth").val(jsonConfig.config.dth);
-						$("#read_interval").val(jsonConfig.config.read_interval);
-						$("#http_port").val(jsonConfig.config.http_port);
-						$(".name").val(jsonConfig.config.name);
-						$("#auth").val(jsonConfig.config.auth);
+						$("#firmware_version").text("v"+(jsonConfig.Config.firmware_version/100>>0)+"."+(jsonConfig.Config.firmware_version/10%10>>0)+"."+(jsonConfig.Config.firmware_version%10>>0));
+						$("#sensor_type").val(jsonConfig.Config.sensor_type);
+						$("#dth").val(jsonConfig.Config.dth);
+						$("#read_interval").val(jsonConfig.Config.read_interval);
+						$("#http_port").val(jsonConfig.Config.http_port);
+						$(".name").val(jsonConfig.Config.name);
+						$("#auth").val(jsonConfig.Config.auth);
 
-						$("#smtp_notify_boot").prop("checked", jsonConfig.config.smtp_notify_boot == "on" ? 1 : 0);
-						$("#smtp_notify_status").prop("checked", jsonConfig.config.smtp_notify_status == "on" ? 1 : 0);
+						$("#smtp_notify_boot").prop("checked", jsonConfig.Config.smtp_notify_boot == "on" ? 1 : 0);
+						$("#smtp_notify_status").prop("checked", jsonConfig.Config.smtp_notify_status == "on" ? 1 : 0);
 
-						$("#smtp_host").val(jsonConfig.config.smtp_host);
-						$("#smtp_port").val(jsonConfig.config.smtp_port);
-						$("#smtp_user").val(jsonConfig.config.smtp_user);
-						$("#smtp_pass").val(jsonConfig.config.smtp_pass);
-						$("#smtp_from").val(jsonConfig.config.smtp_from);
-						$("#smtp_to").val(jsonConfig.config.smtp_to);
-						$("#smtp_subject").val(jsonConfig.config.smtp_subject);
+						$("#smtp_host").val(jsonConfig.Config.smtp_host);
+						$("#smtp_port").val(jsonConfig.Config.smtp_port);
+						$("#smtp_user").val(jsonConfig.Config.smtp_user);
+						$("#smtp_pass").val(jsonConfig.Config.smtp_pass);
+						$("#smtp_from").val(jsonConfig.Config.smtp_from);
+						$("#smtp_to").val(jsonConfig.Config.smtp_to);
+						$("#smtp_subject").val(jsonConfig.Config.smtp_subject);
 
 						$("#config_form").removeClass("loading");
 						$("#config_refresh i").removeClass("loading");

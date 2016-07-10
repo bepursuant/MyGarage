@@ -1,5 +1,5 @@
-#ifndef SENSOR_H_
-#define SENSOR_H_
+#ifndef _SENSOR_H
+#define _SENSOR_H
 
 class Sensor{
 	public:

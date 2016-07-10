@@ -1,5 +1,5 @@
-#ifndef SMTPMAILER_H_
-#define SMTPMAILER_H_
+#ifndef _SMTPMAILER_H
+#define _SMTPMAILER_H
 
 
 #include "Logging.h"

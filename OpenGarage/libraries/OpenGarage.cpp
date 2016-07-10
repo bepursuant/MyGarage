@@ -47,9 +47,9 @@ void OpenGarage::begin() {
     
   Log.info("Mounting SPIFFS...");
   if(!SPIFFS.begin()) {
-    Log.info("failed to mount...nok!"CR);
+    Log.info("failed to mount...nok!\r\n");
   } else {
-    Log.info("ok!"CR);
+    Log.info("ok!\r\n");
   }
 
 }
@@ -57,10 +57,10 @@ void OpenGarage::begin() {
 void OpenGarage::log_reset() {
   Log.info("Resetting log file...");
   if(!SPIFFS.remove(log_fname)) {
-    Log.info("failed to reset... nok!"CR);
+    Log.info("failed to reset... nok!\r\n");
     return;
   }
-  Log.info("ok!"CR);  
+  Log.info("ok!\r\n");  
 }
 
 void OpenGarage::write_log(const LogStruct& data) {
@@ -74,7 +74,7 @@ void OpenGarage::write_log(const LogStruct& data) {
     file = SPIFFS.open(log_fname, "w");
 
     if(!file) {
-      Log.info("failed to create log file... nok!"CR);
+      Log.info("failed to create log file... nok!\r\n");
       return;
     }
 
@@ -94,7 +94,7 @@ void OpenGarage::write_log(const LogStruct& data) {
 
     // if it doesn't open, toss a wobbly
     if(!file) {
-      Log.info("failed to open log file... nok!"CR);
+      Log.info("failed to open log file... nok!\r\n");
       return;
     }
 
@@ -118,7 +118,7 @@ void OpenGarage::write_log(const LogStruct& data) {
 
   file.close();
 
-  Log.info("ok!"CR);
+  Log.info("ok!\r\n");
 }
 
 bool OpenGarage::read_log_start() {
