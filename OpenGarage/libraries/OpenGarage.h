@@ -26,7 +26,7 @@
 #include <Arduino.h>
 #include <FS.h>
 #include "Logging.h"
-#include "../defines.h";
+#include "../defines.h"
 
 // to hold status logs
 struct LogStruct {

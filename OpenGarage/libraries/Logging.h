@@ -1,5 +1,5 @@
-#ifndef LOGGING_H
-#define LOGGING_H
+#ifndef _LOGGING_H
+#define _LOGGING_H
 
 #include <inttypes.h>
 #include <stdarg.h>
@@ -17,9 +17,6 @@
 #define LOGGING_INFO 2
 #define LOGGING_DEBUG 3
 #define LOGGING_VERBOSE 4
-
-// default loglevel if nothing is set from user
-#define LOGLEVEL LOGGING_DEBUG 
 
 #define CR "\r\n"
 #define LOG_VERSION 1
@@ -40,7 +37,7 @@
 * <br>
 * <b>Wildcards</b><br>
 * <ul>
-* <li><b>\%s</b>	replace with an string (char*)</li>
+* <li><b>\%s</b>	replace with an string (const char*)</li>
 * <li><b>\%c</b>	replace with an character</li>
 * <li><b>\%d</b>	replace with an integer value</li>
 * <li><b>\%l</b>	replace with an long value</li>
@@ -94,7 +91,7 @@ public:
 	* \param ... any number of variables
 	* \return void
 	*/
-    void error(char* msg, ...);
+    void error(const char* msg, ...);
 	
     /**
 	*Output an info message. Output message contains
@@ -106,7 +103,7 @@ public:
 	* \return void
 	*/
 
-   void info(char* msg, ...);
+   void info(const char* msg, ...);
 	
     /**
 	* Output an debug message. Output message contains
@@ -118,7 +115,7 @@ public:
 	* \return void
 	*/
 
-    void debug(char* msg, ...);
+    void debug(const char* msg, ...);
 	
     /**
 	* Output an verbose message. Output message contains
@@ -130,7 +127,7 @@ public:
 	* \return void
 	*/
 
-    void verbose(char* msg, ...);   
+    void verbose(const char* msg, ...);   
 
     
 private:
