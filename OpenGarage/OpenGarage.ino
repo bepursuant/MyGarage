@@ -424,22 +424,22 @@ void on_sta_upload() {
 		WiFiUDP::stopAll();
 		uint32_t maxSketchSpace = (ESP.getFreeSketchSpace()-0x1000)&0xFFFFF000;
 		if(!Update.begin(maxSketchSpace)) {
-			Log.info("not enough space...nok!");
+			Log.info("not enough space...nok!\r\n");
 		}
 		
 	} else if(upload.status == UPLOAD_FILE_WRITE) {
 		Log.info(".");
 		if(Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-			Log.info("size mismatch...nok!");
+			Log.info("size mismatch...nok!\r\n");
 		}
 			
 	} else if(upload.status == UPLOAD_FILE_END) {
 		
-		Log.info("ok!");
+		Log.info("ok!\r\n");
 	 
 	} else if(upload.status == UPLOAD_FILE_ABORTED){
 		Update.end();
-		Log.info("upload aborted...nok!");
+		Log.info("upload aborted...nok!\r\n");
 	}
 	delay(0); 
 }
@@ -538,7 +538,7 @@ void setup()
 	//setup time servers
 	Log.verbose("Configured NTP time servers %s and %s...", "pool.ntp.org", "time.nist.org");
 	configTime(0, 0, "pool.ntp.org", "time.nist.org", NULL);
-	Log.verbose("ok!");
+	Log.verbose("ok!\r\n");
 
 	if(server) {
 		Log.verbose("Server object already existed during do_setup routine and has been erased.\r\n");
@@ -553,8 +553,8 @@ void setup()
 	WiFiManager wifiManager;
 
 	//if(checkbutton){
-	//	wifiManager.resetSettings();
-	//	SPIFFS.format();
+		//wifiManager.resetSettings();
+		//SPIFFS.format();
 	//}
 
 	//set config save notify callback
