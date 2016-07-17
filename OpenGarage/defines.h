@@ -44,19 +44,19 @@
 #define PIN_CLOSED D7
 #define PIN_RESET  D8
 
-#define DEFAULT_NAME    "My OpenGarage"
-#define DEFAULT_DEVICEKEY    "opendoor"
-#define DEFAULT_DTH 50
-#define DEFAULT_READ_INTERVAL 4
-#define DEFAULT_HTTP_PORT 80
-#define DEFAULT_SMTP_NOTIFY_BOOT 0
-#define DEFAULT_SMTP_NOTIFY_STATUS 0
-#define DEFAULT_SMTP_HOST ""
-#define DEFAULT_SMTP_PORT 587
-#define DEFAULT_SMTP_USER ""
-#define DEFAULT_SMTP_PASS ""
-#define DEFAULT_SMTP_FROM ""
-#define DEFAULT_SMTP_TO ""
+#define DEFAULT_NAME		"My OpenGarage"
+#define DEFAULT_DEVICEKEY	"opendoor"
+#define DEFAULT_DTH				50
+#define DEFAULT_READ_INTERVAL	4
+#define DEFAULT_HTTP_PORT		80
+#define DEFAULT_SMTP_NOTIFY_BOOT	0
+#define DEFAULT_SMTP_NOTIFY_STATUS	0
+#define DEFAULT_SMTP_HOST	""
+#define DEFAULT_SMTP_PORT	587
+#define DEFAULT_SMTP_USER	""
+#define DEFAULT_SMTP_PASS	""
+#define DEFAULT_SMTP_FROM	""
+#define DEFAULT_SMTP_TO		""
 
 
 // Config file name

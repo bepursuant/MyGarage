@@ -28,7 +28,7 @@ uint OpenGarage::current_log_id;
 static const char* log_fname = LOG_FNAME;
 
 void OpenGarage::begin() {
-  DEBUG_PRINT("Configuring GPIO...");
+  Log.info("Configuring GPIO...");
   digitalWrite(PIN_RESET, HIGH);  // reset button
   pinMode(PIN_RESET, OUTPUT);
   
@@ -43,7 +43,7 @@ void OpenGarage::begin() {
   
   pinMode(PIN_ECHO, INPUT);       // echo
   pinMode(PIN_CLOSED, INPUT_PULLUP); //closed sensor
-  DEBUG_PRINTLN("ok!");
+  Log.info("ok!\r\n");
     
   Log.info("Mounting SPIFFS...");
   if(!SPIFFS.begin()) {
