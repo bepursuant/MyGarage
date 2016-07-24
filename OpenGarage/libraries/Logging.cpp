@@ -52,7 +52,7 @@ void Logging::verbose(const char* msg, ...){
     Serial.print(millis());
     Serial.print("/");
     Serial.print(ESP.getFreeHeap());
-    Serial.print("Mb] ");
+    Serial.print("K] ");
     for (; *format != 0; ++format) {
         if (*format == '%') {
             ++format;

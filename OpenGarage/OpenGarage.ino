@@ -32,7 +32,7 @@ Logging Log = Logging();
 
 // for storing/retrieving configuration values in the file system
 #include "Libraries/Configuration.h"
-ConfigurationStruct configStruct[] = {
+vector<ConfigurationStruct> configStruct = {
 	{"name", DEFAULT_NAME},
 	{"devicekey", DEFAULT_DEVICEKEY},
 	{"http_port", DEFAULT_HTTP_PORT},
@@ -48,7 +48,8 @@ ConfigurationStruct configStruct[] = {
 	{"smtp_from", DEFAULT_SMTP_FROM},
 	{"smtp_to", DEFAULT_SMTP_TO}
 };
-Configuration Config = Configuration(configStruct);
+
+Configuration Config(configStruct);
 
 // DEPRECATE for controlling the garage door
 #include "Libraries/OpenGarage.h"
@@ -75,7 +76,7 @@ static byte door_status_hist = 0;
 
 // to be implemented - just a string for now, will need to be hashed later
 // basically just so we don't store the plaintext devicekey in a cookie
-static String token = String(Config.get("devicekey")->sval);
+static String token = "opendoor"; //String(Config.get("devicekey").sval);
 
 // vars to store a utc timestamp for timekeeping
 // (or millis() for operations that take time)
@@ -179,13 +180,15 @@ String get_ap_ip() {
 bool is_authenticated() {
 	if (server->hasHeader("Cookie")){   
 		String cookie = server->header("Cookie");
-		Log.info("Authenticating Cookie [%s]", cookie.c_str());
+		Log.info("Authenticating using Cookie. Cookie=%s...", cookie.c_str());
 		if (cookie.indexOf("OG_TOKEN=" + token) != -1) {
+			Log.info("ok!");
 			return true;
 		}
 	}
 
 	server_send_result(HTML_UNAUTHORIZED);
+	Log.info("token not found...nok!");
 	return false;
 }
 
@@ -217,8 +220,8 @@ void on_get_controller() {
 	root["last_status_change"] = (int)last_status_change;
 	root["read_count"] = (int)read_count;
 	root["firmware_version"] = (int)FIRMWARE_VERSION;
-	root["name"] = Config.get("name")->sval;
-	root["sensor_type"] = Config.get("sensor_type")->ival;
+	root["name"] = Config.get("name").sval;
+	root["sensor_type"] = Config.get("sensor_type").ival;
 	root["mac"] = get_mac();
 	root["cid"] = (int)ESP.getChipId();
 	
@@ -232,7 +235,7 @@ void on_get_logs() {
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 
-	root["name"] = Config.get("name")->sval;
+	root["name"] = Config.get("name").sval;
 	root["time"] = (int)curr_utc_time();
 
 	JsonArray& logs = root.createNestedArray("logs");
@@ -264,20 +267,20 @@ void on_get_config() {
 
 	JsonObject& conf = root.createNestedObject("config");
 
-	conf["name"] = Config.get("name")->sval;
-	conf["devicekey"] = Config.get("devicekey")->sval;
-	conf["http_port"] = Config.get("http_port")->ival;
-	conf["dth"] = Config.get("dth")->ival;
-	conf["read_interval"] = Config.get("read_interval")->ival;
-	conf["sensor_type"] = Config.get("sensor_type")->ival;
-	conf["smtp_notify_boot"] = Config.get("smtp_notify_boot")->ival;
-	conf["smtp_notify_status"] = Config.get("smtp_notify_status")->ival;
-	conf["smtp_host"] = Config.get("smtp_host")->sval;
-	conf["smtp_port"] = Config.get("smtp_port")->ival;
-	conf["smtp_user"] = Config.get("smtp_user")->sval;
-	conf["smtp_pass"] = Config.get("smtp_pass")->sval;
-	conf["smtp_from"] = Config.get("smtp_from")->sval;
-	conf["smtp_to"] = Config.get("smtp_to")->sval;
+	conf["name"] = Config.get("name").sval;
+	conf["devicekey"] = Config.get("devicekey").sval;
+	conf["http_port"] = Config.get("http_port").ival;
+	conf["dth"] = Config.get("dth").ival;
+	conf["read_interval"] = Config.get("read_interval").ival;
+	conf["sensor_type"] = Config.get("sensor_type").ival;
+	conf["smtp_notify_boot"] = Config.get("smtp_notify_boot").ival;
+	conf["smtp_notify_status"] = Config.get("smtp_notify_status").ival;
+	conf["smtp_host"] = Config.get("smtp_host").sval;
+	conf["smtp_port"] = Config.get("smtp_port").ival;
+	conf["smtp_user"] = Config.get("smtp_user").sval;
+	conf["smtp_pass"] = Config.get("smtp_pass").sval;
+	conf["smtp_from"] = Config.get("smtp_from").sval;
+	conf["smtp_to"] = Config.get("smtp_to").sval;
 
 	String retJson;
 	root.printTo(retJson);
@@ -289,7 +292,7 @@ void on_post_config() {
 	// Go through the posted arguments and save them to the configuration object
 	int numConfigs = sizeof(configStruct) / sizeof(configStruct[0]);
 	for(int i=0; i<numConfigs; i++){
-		const char* name = configStruct[i].name;
+		String name = configStruct[i].name;
 		if(server->hasArg(name)){
 			Config.set(name, server->arg(name));
 		}
@@ -313,7 +316,7 @@ void on_get_status(){
 	status["last_status_change"] = (int)last_status_change;
 	status["read_count"] = read_count;
 	status["firmware_version"] = (int)FIRMWARE_VERSION;
-	status["name"] = Config.get("name")->sval;
+	status["name"] = Config.get("name").sval;
 	status["mac"] = get_mac();
 	status["heap"] = (int)ESP.getFreeHeap();
 	status["chipId"] = (int)ESP.getChipId();
@@ -337,7 +340,7 @@ void on_post_auth() {
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 
-	if(server->hasArg("auth_devicekey") && (server->arg("auth_devicekey") == Config.get("devicekey")->sval)){
+	if(server->hasArg("auth_devicekey") && (server->arg("auth_devicekey") == Config.get("devicekey").sval)){
 		token = server->arg("auth_devicekey");
 		root["result"] = "AUTH_SUCCESS";
 		root["token"] = token;
@@ -418,7 +421,7 @@ void on_sta_upload_fin() {
 
 void on_sta_upload() {
 	HTTPUpload& upload = server->upload();
-	Log.info("Receiving file [%s]...", upload.filename.c_str());
+	Log.info("Receiving file upload. Filename=%s...", upload.filename.c_str());
 
 	if(upload.status == UPLOAD_FILE_START){
 		WiFiUDP::stopAll();
@@ -460,7 +463,7 @@ void time_keeping() {
 
 			int drift = gt - curr_utc_time();
 
-			Log.info("Synchronized time using NTP. Current unix timestamp is %i (drifted %i s).\r\n", gt, drift);
+			Log.info("Synchronized time using NTP. Current Unix Time=%i, Drift=%is).\r\n", gt, drift);
 		} 
 
 	}
@@ -470,7 +473,7 @@ void time_keeping() {
 // check the status of the door based on the sensor type
 void check_status() {
 
-	switch(Config.get("sensor_type")->ival){
+	switch(Config.get("sensor_type").ival){
 
 		case SENSORTYPE_ULTRASONIC_SIDE:
 		case SENSORTYPE_ULTRASONIC_CEILING:
@@ -481,10 +484,10 @@ void check_status() {
 			read_count = (read_count+1)%100;
 
 			// determine based on the current reading if the door is open or closed
-			door_status = (read_value > Config.get("dth")->ival) ? 0 : 1;
+			door_status = (read_value > Config.get("dth").ival) ? 0 : 1;
 
 			// reverse logic for side mount
-			if (Config.get("sensor_type")->ival == SENSORTYPE_ULTRASONIC_SIDE)    
+			if (Config.get("sensor_type").ival == SENSORTYPE_ULTRASONIC_SIDE)    
 				door_status = 1-door_status;
 		
 		break;
@@ -499,7 +502,7 @@ void check_status() {
 		break;
 	}
 
-	Log.info("Read door status read_count [%i] read_value [%i]\r\n", read_count, read_value);
+	Log.info("Read door status read_count=%i read_value=%i\r\n", read_count, read_value);
 
 	// tack this status onto the histogram and find out what 'just happened'
 	door_status_hist = (door_status_hist<<1) | door_status;
@@ -519,8 +522,8 @@ void check_status() {
 		//Log.info("Door Status Changed to [%s]", door_status);
 
 		// module : email alerts
-		//if((bool)Config.get("smtp_notify_status"]){
-		//	Mailer.send(Config.get("smtp_from"], Config.get("smtp_to"], Config.get("smtp_subject"], (char*)last_status_change);
+		//if((bool)Config.get("smtp_notify_status"]).ival){
+		//	Mailer.send(Config.get("smtp_from"]).sval, Config.get("smtp_to"]).sval, Config.get("smtp_subject"].sval, last_status_change);
 		//}
 	}
 
@@ -536,7 +539,7 @@ void setup()
 	Log.init(LOGLEVEL, 115200);
 
 	//setup time servers
-	Log.verbose("Configured NTP time servers %s and %s...", "pool.ntp.org", "time.nist.org");
+	Log.verbose("Configured NTP time servers. Server1=%s, Server2=%s...", "pool.ntp.org", "time.nist.org");
 	configTime(0, 0, "pool.ntp.org", "time.nist.org", NULL);
 	Log.verbose("ok!\r\n");
 
@@ -580,8 +583,8 @@ void setup()
 	Log.info("ok!\r\n");
 
 
-	int port = Config.get("http_port")->ival;
-	Log.info("Starting server on Port [%i]...", port);
+	int port = Config.get("http_port").ival;
+	Log.info("Starting HTTP API and Application Server. Port=%i...", port);
 	server = new ESP8266WebServer(port);
 	server->on("/",   on_get_index);    
 	server->on("/portal", on_get_portal);
@@ -598,10 +601,10 @@ void setup()
 
 
 	// configure the SMTP mailer
-	//const char* smtp_host = Config.get("smtp_host")->sval.c_str();
-	//int smtp_port = Config.get("smtp_port")->ival;
-	//const char* smtp_user = Config.get("smtp_user")->sval.c_str();
-	//const char* smtp_pass = Config.get("smtp_pass")->sval.c_str();
+	//const char* smtp_host = Config.get("smtp_host").sval.c_str();
+	//int smtp_port = Config.get("smtp_port").ival;
+	//const char* smtp_user = Config.get("smtp_user").sval.c_str();
+	//const char* smtp_pass = Config.get("smtp_pass").sval.c_str();
 	//Log.info("Initializing SMTP Mailer [%s:%s@%s:%i]...", smtp_user, smtp_pass, smtp_host, smtp_port);
 	//Mailer.init(smtp_host, smtp_port, smtp_user, smtp_pass);
 	//Log.info("ok!\r\n");
@@ -610,14 +613,14 @@ void setup()
 	// a notification that a door event has occurred if the power was 
 	// just cycled.
 	int log_id = og.current_log_id;
-	Log.info("Reading most recent log item %i ...", log_id);
+	Log.info("Reading most recent log item. LogID=%i ...", log_id);
 	LogStruct current_log;
 	og.read_log(current_log, log_id);
-	Log.info("got tstamp [%i] status [%i] value [%i]...", current_log.tstamp, current_log.status, current_log.value);
+	Log.info("got tstamp=%i, status=%i, value=%i...", current_log.tstamp, current_log.status, current_log.value);
 	door_status_hist = (current_log.status == 1 ? 0b1111 : 0b0000);
 	Log.info("ok!\r\n");
 
-	Log.info("OpenGarage is booted and going into monitor mode. Read Interval [%i] Sensor Type [%i]\r\n", (Config.get("read_interval")->ival * 1000), Config.get("sensor_type")->ival);
+	Log.info("OpenGarage is booted and going into monitor mode. Read Interval=%i, Sensor Type=%i\r\n", (Config.get("read_interval").ival * 1000), Config.get("sensor_type").ival);
 
 }
 
@@ -627,7 +630,7 @@ void loop() {
 
 	time_keeping();
 
-	if(millis() > last_status_check + (Config.get("read_interval")->ival * 1000)) {
+	if(millis() > last_status_check + (Config.get("read_interval").ival * 1000)) {
 		last_status_check = millis();
 		check_status();
 	}

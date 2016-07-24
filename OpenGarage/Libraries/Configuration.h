@@ -2,28 +2,24 @@
 #define _CONFIGURATION_H
 
 #include <ArduinoJson.h>
+#include <vector>
 #include "FS.h"
+using namespace std;
 
 
 // define a struct to hold configuration options
 struct ConfigurationStruct {
-	const char* name;
-	int ival;
+	String name;
 	String sval;
+	int ival;
 
-	operator int() { return this->ival; }
-	operator String() { return this->sval; } 
-
-
-	ConfigurationStruct(const char* name, int ival){
+	ConfigurationStruct(String name, int ival){
 		this->name = name;
 		this->ival = ival;
-		this->sval = "";
 	}
 
-	ConfigurationStruct(const char* name, String sval){
+	ConfigurationStruct(String name, String sval){
 		this->name = name;
-		this->ival = 0;
 		this->sval = sval;
 	}
 }; 
@@ -31,11 +27,14 @@ struct ConfigurationStruct {
 
 class Configuration{
 	public:
-		ConfigurationStruct* configStruct;
-		Configuration(ConfigurationStruct*);
-		ConfigurationStruct* get(const char*);
-		bool set(const char*, String);
-		bool set(const char*, int);
+		vector<ConfigurationStruct> configStruct;
+		Configuration(const vector<ConfigurationStruct>&);
+		ConfigurationStruct get(String);
+		bool set(String, String);
+		bool set(String, int);
 };
 
 #endif
+
+
+
