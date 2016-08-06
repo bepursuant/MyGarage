@@ -6,7 +6,6 @@
 #include "FS.h"
 using namespace std;
 
-
 // define a struct to hold configuration options
 struct ConfigurationStruct {
 	String name;
@@ -27,14 +26,16 @@ struct ConfigurationStruct {
 
 class Configuration{
 	public:
-		vector<ConfigurationStruct> configStruct;
+
+		vector<ConfigurationStruct> vDefault;
+		vector<ConfigurationStruct> vCustom;
 		Configuration(const vector<ConfigurationStruct>&);
+		bool setCustomVector(const vector<ConfigurationStruct>&);
+
 		ConfigurationStruct get(String);
+		
 		bool set(String, String);
 		bool set(String, int);
 };
 
 #endif
-
-
-
