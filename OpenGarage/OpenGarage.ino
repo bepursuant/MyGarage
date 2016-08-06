@@ -32,7 +32,8 @@ Logging Log = Logging();
 
 // for storing/retrieving configuration values in the file system
 #include "Libraries/Configuration.h"
-vector<ConfigurationStruct> configStruct = {
+
+vector<ConfigurationStruct> defaultConfig = {
 	{"name", DEFAULT_NAME},
 	{"devicekey", DEFAULT_DEVICEKEY},
 	{"http_port", DEFAULT_HTTP_PORT},
@@ -49,7 +50,12 @@ vector<ConfigurationStruct> configStruct = {
 	{"smtp_to", DEFAULT_SMTP_TO}
 };
 
-Configuration Config(configStruct);
+vector<ConfigurationStruct> customConfig = {
+	{"name", "CUSTOM NAME"},
+	{"http_port", 8080}
+};
+
+Configuration Config(defaultConfig);
 
 // DEPRECATE for controlling the garage door
 #include "Libraries/OpenGarage.h"
@@ -290,16 +296,16 @@ void on_get_config() {
 
 void on_post_config() {
 	// Go through the posted arguments and save them to the configuration object
-	int numConfigs = sizeof(configStruct) / sizeof(configStruct[0]);
+	/*int numConfigs = sizeof(configStruct) / sizeof(configStruct[0]);
 	for(int i=0; i<numConfigs; i++){
 		String name = configStruct[i].name;
 		if(server->hasArg(name)){
-			Config.set(name, server->arg(name));
+			//config.set(name, server->arg(name));
 		}
-	}
+	}*/
 
 	// then write the changes to the FS
-	//Config.save();
+	//config.save();
 	
 	server_send_result(HTML_SUCCESS);
 }
@@ -534,6 +540,7 @@ void setup()
 	//delay for 10 seconds to allow for serial recovery;
 	delay(10000);
 
+	Config.setCustomVector(customConfig);
 
 	//SPIFFS.format();
 	Log.init(LOGLEVEL, 115200);
@@ -572,7 +579,7 @@ void setup()
 	//if it does not connect it starts an access point with the specified name
 	//here  "AutoConnectAP"
 	//and goes into a blocking loop awaiting configuration
-	Log.info("Auto Connecting...");
+	Log.info("Auto Connecting...\r\n");
 	if (!wifiManager.autoConnect()){
 		Log.info("failed to connect to AP, restarting in 30 seconds...nok!\r\n");
 		delay(300000);
