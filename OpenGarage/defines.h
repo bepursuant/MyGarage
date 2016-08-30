@@ -34,7 +34,7 @@
 #include <vector>
  
 /** Firmware version, hardware version, and maximal values */
-#define FIRMWARE_VERSION    100   // Firmware version: 100 means 1.0.0
+#define FIRMWARE_VERSION    201  // Firmware version: 100 means 1.0.0
 
 /** GPIO pins */
 #define PIN_TRIG   D1
@@ -47,8 +47,11 @@
 
 // Config file name
 #define CONFIG_FNAME    "/config.dat"
+
 // Log file name
 #define LOG_FNAME       "/log.dat"
+#define LOGLEVEL LOGGING_VERBOSE
+
 
 #define SENSORTYPE_ULTRASONIC_CEILING  0
 #define SENSORTYPE_ULTRASONIC_SIDE     1
@@ -58,8 +61,8 @@
 #define DEFAULT_NAME		"My OpenGarage"
 #define DEFAULT_DEVICEKEY	"opendoor"
 #define DEFAULT_DTH				50
-#define DEFAULT_READ_INTERVAL	4
-#define DEFAULT_SENSORTYPE SENSORTYPE_MAGNETIC_CLOSE
+#define DEFAULT_READ_INTERVAL	10
+#define DEFAULT_SENSORTYPE SENSORTYPE_MAGNETIC_CLOSED
 #define DEFAULT_HTTP_PORT		80
 #define DEFAULT_SMTP_NOTIFY_BOOT	0
 #define DEFAULT_SMTP_NOTIFY_STATUS	0
@@ -71,6 +74,7 @@
 #define DEFAULT_SMTP_TO		""
 
 #define MAX_LOG_RECORDS    100
+#define WIFI_PORTAL_TIMEOUT 120 //seconds
 
 // door status histogram
 // number of values (maximum is 8)
