@@ -1,12 +1,12 @@
 #include "Logging.h"
 
 void Logging::init(int level, long baud){
-    _level = constrain(level,LOGGING_NOOUTPUT,LOGGING_VERBOSE);
+    _level = constrain(level, LOGGING_NOOUTPUT, LOGGING_VERBOSE);
     _baud = baud;
     Serial.begin(_baud);
     
     Serial.print("\r\n\r\n");
-    this->info("Started logging at loglevel [%i] to serial output at %i baud\r\n", level, baud);
+    this->info("Serial logging has started. Baud=%i, Log Level=%i\r\n", baud, level);
 }
 
 void Logging::error(const char* msg, ...){
