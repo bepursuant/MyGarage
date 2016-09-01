@@ -3,6 +3,7 @@
 
 #include <ArduinoJson.h>
 #include <vector>
+#include <algorithm>
 #include "FS.h"
 using namespace std;
 

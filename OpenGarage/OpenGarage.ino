@@ -47,10 +47,6 @@ vector<ConfigurationStruct> defaultConfig = {
 	{"smtp_from", DEFAULT_SMTP_FROM},
 	{"smtp_to", DEFAULT_SMTP_TO}
 };
-vector<ConfigurationStruct> customConfig = {
-	{"name", "CUSTOM NAME"},
-	{"http_port", 8080}
-};
 Configuration Config(defaultConfig);
 
 // DEPRECATE for controlling the garage door
@@ -319,7 +315,7 @@ void on_post_config() {
 	// then write the changes to the FS
 	String sj = Config.getJson();
 
-	Config.setJson(sj);
+	// sav to fs
 	
 	server_send_result(HTML_SUCCESS);
 }
@@ -561,10 +557,6 @@ void setup()
 
 	// initialize logging and begin output
 	Log.init(LOGLEVEL, 115200);
-
-	// give the config library a vector with configuration data
-	// to override the defaults assigned during initializing
-	Config.setCustomVector(customConfig);
 
 	// setup time servers
 	Log.verbose("Configuring NTP time servers. Server1=%s, Server2=%s...", "pool.ntp.org", "time.nist.org");
