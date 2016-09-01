@@ -20,7 +20,7 @@ ConfigurationStruct Configuration::get(String key){
 	//Log.verbose("Looking for key=%s...", key.c_str());
 
 	// First search through the custom vector to see if we have an 
-	// overridden value, possibly loaded from a file or ui
+	// overridden value, possibly loaded from a file or other ui
 	for (const auto& cs : this->vCustom) {
 		if (cs.name == key) {
 			//Log.verbose("found it in custom vector...ival=%i, sval=%s...ok!\r\n", cs.ival, cs.sval.c_str());
@@ -57,45 +57,74 @@ bool Configuration::set(String key, String sval, int ival){
 	// sure the key we are trying to set already is
 	// in our configuration. If not return false
 	for (auto& vd : this->vDefault) {
+
 		if (vd.name == key) {
+
 			// we found it! This is a good key, lets set
 			// set it's value in our custom vector
-			Log.verbose("key is valid...");
+			Log.verbose("exists in the default vector...");
 
-			// if the value is the same as the value in the default
-			// vector, we will not save it to the custom vector.
-			// This prevents us from storing data we wont use
-			if(vd.sval == sval.c_str() && vd.ival == ival){
 
-				Log.verbose("and is the same as the default, ignoring...");
+			// we only want to save a value if its not the same
+			// as the value in the default vector. why store
+			// a value that we already know?
+			if(vd.sval == sval && vd.ival == ival){
+				Log.verbose("is the same as the default...");
 				bSet = true;
 
-			} else {
-			
+				// erase-remove the value if it is in the custom
+				// vector as it is being set to the default
+				//bool nameMatch(const ConfigurationStruct& cs){
+				//   return cs.name == key;
+				//}
+				this->vCustom.erase(
+					remove_if(
+						this->vCustom.begin(),
+						this->vCustom.end(),
+						[&key](ConfigurationStruct cs){
+							return cs.name == key;
+						}),
+					this->vCustom.end()
+				);
+			}
+
+
+			// now iterate the custom vector to see if the 
+			// key is already stored here. If it is, then
+			// update the value, otherwise create it
+			if(!bSet){
 				for (auto& vc : this->vCustom) {
+
 					if (vc.name == key){
-						Log.verbose("and already exists in custom vector...");
+
 						// we already have a value in our custom vector,
 						// all we need to do is update its values
+						Log.verbose("already exists in custom vector...");
+
+						// if the value is the same as the value in the default
+						// vector, we will not save it to the custom vector.
+						// This prevents us from storing data we wont use
 						vc.sval = sval;
 						vc.ival = ival;
 						bSet = true;
 						Log.verbose("and has been updated...");
-						break;
+
+						break; // found it, no need to search further
 					}
 				}
-
-				// the key is valid but we don't have a configstruct in our
-				// custom vector yet. all we need is to create and append
-				if(!bSet) {
-					Log.verbose("and does not already exist...");
-					ConfigurationStruct cs = ConfigurationStruct(key, sval, ival);
-					this->vCustom.push_back(cs);
-					bSet = true;
-					Log.verbose("but has been created...");
-				}
 			}
-			break;
+
+			// the key is valid but we don't have a configstruct in our
+			// custom vector yet. all we need is to create and append
+			if(!bSet){
+				Log.verbose("is not overridden...");
+				ConfigurationStruct cs = ConfigurationStruct(key, sval, ival);
+				this->vCustom.push_back(cs);
+				bSet = true;
+				Log.verbose("but has been saved...");
+			}
+
+			break; // found it, no need to search further
 		}
 	}
 
@@ -147,10 +176,16 @@ void Configuration::setJson(String json){
 		Log.verbose("parsed successfully...ok!\r\n");
 	}
 
-	for (auto& js : root){
-		Log.verbose("Loading config item. Name=%s, sval=%s, ival=%i...", js.name.c_str(), js.sval.c_str(), js.ival);
+	JsonArray& config = root["config"];
+	this->vCustom.clear(); // clear the vector so we can load it from scratch
+	for (auto& js : config){
+		String name = js["name"].asString();
+		String sval = js["sval"].asString();
+		int ival = js["ival"].as<int>();
 
-		ConfigurationStruct cs = ConfigurationStruct(js.name, js.sval, js.ival);
+		Log.verbose("Loading config item. Name=%s, sval=%s, ival=%i...", name.c_str(), sval.c_str(), ival);
+
+		ConfigurationStruct cs = ConfigurationStruct(name, sval, ival);
 		this->vCustom.push_back(cs);
 
 		Log.verbose("ok!\r\n");
