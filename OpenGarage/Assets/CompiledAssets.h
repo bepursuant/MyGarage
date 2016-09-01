@@ -306,7 +306,6 @@ Authentication
 $(document).ready(function(){
 // intercept form submission
 $("#auth_form").on("submit", function(){
-$(this).addClass("loading");
 auth_form = $("#auth_form");
 // send xhr request
 $.ajax({
@@ -316,10 +315,8 @@ data: auth_form.serialize(),
 success: function(postAuth) {
 if(postAuth.result == "AUTH_SUCCESS"){
 setCookie("OG_TOKEN", postAuth.token, 0);
-$("#auth_submit").removeClass("loading");
 $("#login-modal").modal("hide");
 } else {
-$(this).removeClass("loading");
 alert("Please try again");
 }
 }
@@ -331,6 +328,9 @@ return false;
 if(!getCookie("OG_TOKEN")){
 $("#login-modal").modal("show");//"setting","closable",false).modal("show");
 }
+});
+$("#auth_submit").click(function(){
+$("#auth_form").submit()
 });
 </script>
 </div>
