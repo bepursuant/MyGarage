@@ -162,7 +162,7 @@ String Configuration::getJson(){
 	return retJson;
 }
 
-void Configuration::setJson(String json){
+bool Configuration::setJson(String json){
 	Log.verbose("Loading configuration from JSON. JSON=%s...", json.c_str());
 
 	DynamicJsonBuffer jsonBuffer;
@@ -170,11 +170,11 @@ void Configuration::setJson(String json){
 
 	// Test if parsing succeeds.
 	if (!root.success()) {
-		Log.verbose("parse failed...nok!\r\n");
-		return;
-	} else {
-		Log.verbose("parsed successfully...ok!\r\n");
+		Log.error("Failed to parse configuration file...nok!\r\n");
+		return false;
 	}
+
+	Log.verbose("file parsed successfully...");
 
 	JsonArray& config = root["config"];
 	this->vCustom.clear(); // clear the vector so we can load it from scratch
@@ -190,22 +190,25 @@ void Configuration::setJson(String json){
 
 		Log.verbose("ok!\r\n");
 	}
+
+	Log.verbose("ok!\r\n");
+	return true;
 }
 
 
-void Configuration::loadJsonFile(String jsonFilePath) {
+bool Configuration::loadJsonFile(String jsonFilePath) {
 	Log.verbose("Loading configuration from json file. Filepath=%s...", jsonFilePath.c_str());
 	
 	File jsonFile = SPIFFS.open(jsonFilePath, "r");
 	if (!jsonFile) {
 		Log.error("Failed to open configuration file...nok!\r\n");
-		return;
+		return false;
 	}
 
 	size_t size = jsonFile.size();
 	if (size > 1024) {
 		Log.error("Config file size is too large. Size limit=%i...nok!\r\n", 1024);
-		return;
+		return false;
 	}
 
 	// Allocate a buffer to store contents of the file.
@@ -216,21 +219,21 @@ void Configuration::loadJsonFile(String jsonFilePath) {
 	// use jsonFile.readString instead.
 	this->setJson(String(jsonFile.readString()));
 	Log.verbose("ok!\r\n");
-	return;
+	return true;
 }
 
-void Configuration::saveJsonFile(String jsonFilePath) {
+bool Configuration::saveJsonFile(String jsonFilePath) {
 	Log.verbose("Saving configuration to file. Filepath=%s...", jsonFilePath.c_str());
 
 	File jsonFile = SPIFFS.open(jsonFilePath, "w");
 
 	if (!jsonFile) {
 		Log.error("Failed to open config file for writing...nok!\r\n");
-		return;
+		return false;
 	}
 
 	jsonFile.print(this->getJson());
 	jsonFile.close();
 	Log.verbose("ok!\r\n");
-	return ;
+	return true;
 }
