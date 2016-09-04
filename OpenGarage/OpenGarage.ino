@@ -57,7 +57,6 @@ OpenGarage og;
 #include "Libraries/SMTPMailer.h"
 SMTPMailer Mailer;
 
-
 ESP8266WebServer *server = NULL;
 
 static byte read_count = 0;
@@ -304,7 +303,7 @@ void on_post_config() {
 
 		//find the key, string value and interpolate the ival
 		//by casting to an int. we store the value in both
-		//str and int to provide easier x compatibility
+		//str and int to provide easier x-compatibility
 		String key = server->argName(i);
 		String sval = String(server->arg(i));
 		int ival = sval.toInt();
@@ -312,10 +311,7 @@ void on_post_config() {
 		Config.set(key, sval, ival);
 	}
 
-	// then write the changes to the FS
-	String sj = Config.getJson();
-
-	// sav to fs
+	Config.saveJsonFile(CONFIG_FNAME);
 	
 	server_send_result(HTML_SUCCESS);
 }
@@ -565,6 +561,8 @@ void setup()
 
 	// DEPRECATE: OpenGarage object
 	og.begin();
+
+	Config.loadJsonFile(CONFIG_FNAME);
 
 	// initialize the WiFiManager to establish a WiFi connection
 	// or offer a configuration portal to the user for config

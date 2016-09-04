@@ -47,6 +47,8 @@ class Configuration{
 
 		String getJson();
 		void setJson(String);
+		void loadJsonFile(String);
+		void saveJsonFile(String);
 
 		ConfigurationStruct get(String);
 		
