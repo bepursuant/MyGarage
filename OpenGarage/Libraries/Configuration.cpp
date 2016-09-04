@@ -191,3 +191,46 @@ void Configuration::setJson(String json){
 		Log.verbose("ok!\r\n");
 	}
 }
+
+
+void Configuration::loadJsonFile(String jsonFilePath) {
+	Log.verbose("Loading configuration from json file. Filepath=%s...", jsonFilePath.c_str());
+	
+	File jsonFile = SPIFFS.open(jsonFilePath, "r");
+	if (!jsonFile) {
+		Log.error("Failed to open configuration file...nok!\r\n");
+		return;
+	}
+
+	size_t size = jsonFile.size();
+	if (size > 1024) {
+		Log.error("Config file size is too large. Size limit=%i...nok!\r\n", 1024);
+		return;
+	}
+
+	// Allocate a buffer to store contents of the file.
+	std::unique_ptr<char[]> buf(new char[size]);
+
+	// We don't use String here because ArduinoJson library requires the input
+	// buffer to be mutable. If you don't use ArduinoJson, you may as well
+	// use jsonFile.readString instead.
+	this->setJson(String(jsonFile.readString()));
+	Log.verbose("ok!\r\n");
+	return;
+}
+
+void Configuration::saveJsonFile(String jsonFilePath) {
+	Log.verbose("Saving configuration to file. Filepath=%s...", jsonFilePath.c_str());
+
+	File jsonFile = SPIFFS.open(jsonFilePath, "w");
+
+	if (!jsonFile) {
+		Log.error("Failed to open config file for writing...nok!\r\n");
+		return;
+	}
+
+	jsonFile.print(this->getJson());
+	jsonFile.close();
+	Log.verbose("ok!\r\n");
+	return ;
+}
