@@ -46,9 +46,9 @@ class Configuration{
 		bool setCustomVector(vector<ConfigurationStruct>&);
 
 		String getJson();
-		void setJson(String);
-		void loadJsonFile(String);
-		void saveJsonFile(String);
+		bool setJson(String);
+		bool loadJsonFile(String);
+		bool saveJsonFile(String);
 
 		ConfigurationStruct get(String);
 		
