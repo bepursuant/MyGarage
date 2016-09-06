@@ -280,8 +280,8 @@ void on_get_config() {
 	conf["dth"] = Config.get("dth").ival;
 	conf["read_interval"] = Config.get("read_interval").ival;
 	conf["sensor_type"] = Config.get("sensor_type").ival;
-	conf["smtp_notify_boot"] = Config.get("smtp_notify_boot").ival;
-	conf["smtp_notify_status"] = Config.get("smtp_notify_status").ival;
+	conf["smtp_notify_boot"] = Config.get("smtp_notify_boot").sval;
+	conf["smtp_notify_status"] = Config.get("smtp_notify_status").sval;
 	conf["smtp_host"] = Config.get("smtp_host").sval;
 	conf["smtp_port"] = Config.get("smtp_port").ival;
 	conf["smtp_user"] = Config.get("smtp_user").sval;
@@ -536,9 +536,9 @@ void check_status() {
 			og.write_log(l);
 
 			// module : email alerts
-			//if((bool)Config.get("smtp_notify_status"]).ival){
-			//	Mailer.send(Config.get("smtp_from"]).sval, Config.get("smtp_to"]).sval, Config.get("smtp_subject"].sval, last_status_change);
-			//}
+			if((bool)Config.get("smtp_notify_status").sval){
+				Mailer.send(Config.get("smtp_from").sval, Config.get("smtp_to").sval, "Door status changed!", String(last_status_change));
+			}
 		}
 
 		Log.info("ok!\r\n");
@@ -624,13 +624,11 @@ void setup()
 	Log.info("ok!\r\n");
 
 	// configure the SMTP mailer
-	//const char* smtp_host = Config.get("smtp_host");
-	//int smtp_port = Config.get("smtp_port").ival;
-	//const char* smtp_user = Config.get("smtp_user").sval.c_str();
-	//const char* smtp_pass = Config.get("smtp_pass").sval.c_str();
-	//Log.info("Initializing SMTP Mailer [%s:%s@%s:%i]...", smtp_user, smtp_pass, smtp_host, smtp_port);
-	//Mailer.init(smtp_host, smtp_port, smtp_user, smtp_pass);
-	//Log.info("ok!\r\n");
+	String smtp_host = Config.get("smtp_host").sval;
+	int smtp_port = Config.get("smtp_port").ival;
+	String smtp_user = Config.get("smtp_user").sval;
+	String smtp_pass = Config.get("smtp_pass").sval;
+	Mailer.init(smtp_host, smtp_port, smtp_user, smtp_pass);
 
 	// pull inthe last known door status so that we don't mistakenly send
 	// a notification that a door event has occurred if the power was 
