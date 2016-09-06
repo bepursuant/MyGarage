@@ -5,92 +5,83 @@
 
 #include "SMTPMailer.h"
 
-void SMTPMailer::init(const char* server, int port, const char* user, const char* password){
-	if(!server || !port || !user || !password)
+void SMTPMailer::init(String server, int port, String user, String password){
+	Log.verbose("Initializing SMTPMailer object. Server=%s, Port=%i, User=%s, Password=%s...", server.c_str(), port, user.c_str(), password.c_str());
+	if(!server || !port || !user || !password){
+		Log.error("Unable to initialize SMTPMailer with given parameters...nok!\r\n");
 		return;
+	}
 
 	this->smtp_host = server;
 	this->smtp_port = port;
 	this->smtp_user = user;
 	this->smtp_pass = password;
+
+	Log.verbose("ok!\r\n");
+	return;
 }
 
-byte SMTPMailer::send(const char* from, const char* to, const char* subject, const char* body)
+byte SMTPMailer::send(String from, String to, String subject, String body)
 {
-	if(!from || !to || !subject || !body)
-		return 0;
-
-	Log.info("Sending email From [%s] To [%s] Subject [%s]\r\n", from, to, subject);
+	Log.verbose("Sending email. From=%s, To=%s, Subject=%s, Body=%s...", from.c_str(), to.c_str(), subject.c_str(), body.c_str());
+	
+	if(!from || !to || !subject || !body){
+		Log.error("Unable to send email with given parameters...nok!\r\n");
+		return false;
+	}
 
 	byte thisByte = 0;
 	byte respCode;
 
-	if(client.connect(this->smtp_host, this->smtp_port)) {
-		Log.verbose("Connected to Host:%s Port:%i\r\n", this->smtp_host, this->smtp_port);
-	} else {
-		Log.error("Could not connect to Host [%s] Port:[%i]\r\n", this->smtp_host, this->smtp_port);
+	if(!client.connect(this->smtp_host.c_str(), this->smtp_port)) {
+		Log.error("Failed to connect to SMTP Host. Server=%s, Port=%i...nok!\r\n", this->smtp_host.c_str(), this->smtp_port);
 		return 0;
 	}
 
+	Log.verbose("connected to SMTP host. Server=%s, Port=%i...", this->smtp_host.c_str(), this->smtp_port);
 	if(!awaitResponse()) return 0;
 
-	Log.verbose("Sending EHLO\r\n");
-	client.printf("EHLO %s\r\n", this->smtp_host);	//change to your public ip
-
+	Log.verbose("EHLO %s...", this->smtp_host.c_str());
+	client.printf("EHLO %s\r\n", this->smtp_host.c_str());	//change to your public ip
 	if(!awaitResponse()) return 0;
 
-	Log.verbose("Sending AUTH LOGIN\r\n");
+	Log.verbose("AUTH LOGIN...");
 	client.println("AUTH LOGIN");
 	if(!awaitResponse()) return 0;
 
-	Log.verbose("Sending User\r\n");
+	Log.verbose("USER %s...",this->smtp_user.c_str());
 	client.println(base64::encode(this->smtp_user));
-
 	if(!awaitResponse()) return 0;
 
-	Log.verbose("Sending Password\r\n");
+	Log.verbose("PASS %s...", this->smtp_pass.c_str());
 	client.println(base64::encode(this->smtp_pass));
-
 	if(!awaitResponse()) return 0;
 
-	Log.verbose("Sending From\r\n");
-	client.printf("MAIL From: <%s>\r\n", from);	// change to your email address (sender)
-
+	Log.verbose("MAIL From: <%s>...",from.c_str());
+	client.printf("MAIL From: <%s>\r\n", from.c_str());	// change to your email address (sender)
 	if(!awaitResponse()) return 0;
 
-	Log.verbose("Sending To\r\n");
-	client.printf("RCPT To: <%s>\r\n", to);	// change to recipient address
-
+	Log.verbose("RCPT To: <%s>..", to.c_str());
+	client.printf("RCPT To: <%s>\r\n", to.c_str());	// change to recipient address
 	if(!awaitResponse()) return 0;
 
-	Log.verbose("Sending DATA\r\n");
+	Log.verbose("DATA...");
 	client.write("DATA\r\n");
-
 	if(!awaitResponse()) return 0;
 
-	Log.verbose("Sending Message\r\n");
-
-	client.printf("To: %s\r\n", to);	// change to recipient address
-
-	client.printf("From: %s\r\n", from);
-
-	client.printf("Subject: %s\r\n", subject);
-
-	client.println("Test Body");
-
+	client.printf("To: %s\r\n", to.c_str());	// change to recipient address
+	client.printf("From: %s\r\n", from.c_str());
+	client.printf("Subject: %s\r\n", subject.c_str());
+	client.printf("%s\r\n", body.c_str());
 	client.write(".\r\n");
-
-	Log.debug("Message Sent\r\n");
-
 	if(!awaitResponse()) return 0;
 
-	Log.verbose("Sending QUIT\r\n");
+	Log.verbose("QUIT...");
 	client.write("QUIT\r\n");
-
 	if(!awaitResponse()) return 0;
 
 	client.stop();
-	Log.verbose("Disconnected\r\n");
+	Log.verbose("message sent...ok!\r\n");
 
 	return 1;
 }

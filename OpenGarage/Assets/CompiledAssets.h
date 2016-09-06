@@ -7,24 +7,20 @@ const char html_portal[] PROGMEM = R"=====(<!DOCTYPE html>
 <title class="name">OpenGarage</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/1.11.8/semantic.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.address/1.6/jquery.address.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/1.11.8/semantic.min.js"></script>
 </head>
 <body>
-<div class="ui top attached menu">
+<div class="ui top attached tabular menu">
 <a href="/" class="header item name">OpenGarage</a>
-<a href="#/status" class="active item" data-tab="tab-status">
+<a class="item active" data-tab="status">
 <i class="heartbeat icon"></i> Status
 </a>
-<a href="#/log" class="item" data-tab="tab-log">
-<i class="list icon"></i> Log
-</a>
-<a href="#/config" class="item" data-tab="tab-config">
-<i class="options icon"></i> Config
+<a class="item" data-tab="configuration">
+<i class="options icon"></i> Configuration
 </a>
 </div>
-<p id="msg"></p>
-<div class="ui segment">
-<div class="ui bottom attached active tab" data-tab="tab-status">
+<div class="ui bottom attached tab segment active" data-tab="status">
 <h3>Status</h3>
 <!-- refresh status button -->
 <div id="status-refresh" class="ui button right">
@@ -95,17 +91,17 @@ $("#door-history").append(r);
 }
 </script>
 </div>
-<div class="ui bottom attached tab" data-tab="tab-config">
+<div class="ui bottom attached tab segment" data-tab="configuration">
 <h3>Config</h3>
 <div id="config_refresh" class="ui button">
 <i class="refresh icon"></i> Refresh Config
 </div>
 <form id="config_form" action="/json/config" method="POST" class="ui form">
 <div class="ui top attached tabular menu">
-<a class="item active" data-tab="basic-options">Basic Options</a>
-<a class="item" data-tab="sensor-settings">Sensor Settings</a>
-<a class="item" data-tab="email-notifications">Email Notifications</a>
-<a class="item" data-tab="firmware-update">Firmware Update</a>
+<a class="item active" data-tab="basic-options">Basic</a>
+<a class="item" data-tab="sensor-settings">Sensor</a>
+<a class="item" data-tab="email-notifications">Notifications</a>
+<a class="item" data-tab="firmware-update">Update</a>
 </div>
 <!-- device settings -->
 <div class="ui bottom attached active tab segment" data-tab="basic-options">
@@ -120,16 +116,21 @@ $("#door-history").append(r);
 </div>
 </div>
 <div class="fields">
-<div class="three wide field">
+<div class="six wide field">
 <div class="ui checkbox">
 <input type="checkbox" id="change_devicekey" name="change_devicekey">
 <label for="change_devicekey">Change Device Key</label>
 </div>
-<input type="password" size=24 maxlength=32 id="new_devicekey" name="new_devicekey" disabled>
+</div>
+</div>
+<div class="fields">
+<div class="three wide field">
+<label for="new_devicekey">New Device Key</label>
+<input type="password" size="24" maxlength="32" id="new_devicekey" name="new_devicekey" disabled>
 </div>
 <div class="three wide field">
 <label for="config_devicekey">Confirm</label>
-<input type="password" size=24 maxlength=32 id="confirm_devicekey" name="confirm_devicekey" disabled>
+<input type="password" size="24" maxlength="32" id="confirm_devicekey" name="confirm_devicekey" disabled>
 </div>
 </div>
 </div>
@@ -156,21 +157,24 @@ $("#door-history").append(r);
 </div>
 <!-- email status notifications -->
 <div class="ui bottom attached tab segment" data-tab="email-notifications">
+<h4 class="ui dividing header">SMTP Server Settings</h4>
 <div class="fields">
 <div class="three wide field">
-<label for="smtp_host">SMTP Server Hostname or IP</label>
+<label for="smtp_host">Hostname or IP</label>
 <input type="text" maxlength="32" id="smtp_host" name="smtp_host" />
 </div>
 <div class="three wide field">
-<label for="smtp_port">SMTP Server Port</label>
+<label for="smtp_port">Port</label>
 <input type="text" maxlength="5" id="smtp_port" name="smtp_port" />
 </div>
+</div>
+<div class="fields">
 <div class="three wide field">
-<label for="smtp_user">SMTP Username</label>
+<label for="smtp_user">Username</label>
 <input type="text"  maxlength="32" id="smtp_user" name="smtp_user" />
 </div>
 <div class="three wide field">
-<label for="smtp_pass">SMTP Password</label>
+<label for="smtp_pass">Password</label>
 <input type="password" maxlength="32" id="smtp_pass" name="smtp_pass" />
 </div>
 </div>
@@ -179,22 +183,25 @@ $("#door-history").append(r);
 <label for="smtp_from">Send Emails From</label>
 <input type="text" maxlength="32" id="smtp_from" name="smtp_from" />
 </div>
+</div>
+<h4 class="ui dividing header">Notification Settings</h4>
+<div class="fields">
 <div class="six wide field">
-<label for="smtp_to">Send Emails To</label>
+<label for="smtp_to">Send Email Notification To</label>
 <input type="text" maxlength="32" id="smtp_to" name="smtp_to" />
 </div>
 </div>
 <div class="grouped fields">
-<label>Email Notifications</label>
-<div class="field ui checkbox">
-<input type="hidden" name="smtp_notify_status" value="0" />
-<input type="checkbox" id="smtp_notify_status" name="smtp_notify_status" value="0" />
-<label for="smtp_notify_status">Send Email on Door Status Change</label>
+<label>When</label>
+<div class="field ui toggle checkbox">
+<input type="hidden" name="smtp_notify_status" value="0"/>
+<input type="checkbox" id="smtp_notify_status" name="smtp_notify_status" class="hidden"/>
+<label>Door Status Changes</label>
 </div>
-<div class="field ui checkbox">
-<input type="hidden" name="smtp_notify_status" value="0" />
-<input type="checkbox" id="smtp_notify_boot" name="smtp_notify_boot" value="0" />
-<label for="smtp_notify_boot">Send Email on Boot/Reboot</label>
+<div class="field ui toggle checkbox">
+<input type="hidden" name="smtp_notify_boot" value="0"/>
+<input type="checkbox" id="smtp_notify_boot" name="smtp_notify_boot" class="hidden"/>
+<label>Device Boots or Reboots</label>
 </div>
 </div>
 </div>
@@ -323,7 +330,6 @@ alert("Please try again");
 });
 // prevent submitting again
 return false;
-		 
 });
 if(!getCookie("OG_TOKEN")){
 $("#login-modal").modal("show");//"setting","closable",false).modal("show");
@@ -333,18 +339,19 @@ $("#auth_submit").click(function(){
 $("#auth_form").submit()
 });
 </script>
-</div>
 <script>
 $(document).ready(function() {
 //$("select.dropdown").dropdown();
 $(".checkbox").checkbox();
 // setup tab behavior on top menu items
-$(".ui.menu a.item").tab().on("click", function(){
+$(".ui.menu a.item").tab({
+history: true
+});/*.on("click", function(){
 $(this)
 .addClass("active")
 .siblings()
 .removeClass("active");
-});
+});*/
 });		
 function clear_msg() {
 $("#msg").html("");
@@ -369,6 +376,7 @@ var keyValue = document.cookie.match("(^|;) ?" + key + "=([^;]*)(;|$)");
 return keyValue ? keyValue[2] : null;
 }
 </script>
+<p id="msg"></p>
 </body>
 </html>
 )=====";
