@@ -1,25 +1,3 @@
-/* OpenGarage Firmware
- *
- * Main loop
- * Mar 2016 @ OpenGarage.io
- *
- * This file is part of the OpenGarage library
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see
- * <http://www.gnu.org/licenses/>.
- */
-
 #include "defines.h"
 
 // compiled HTTP assets (basically just the portal, single page application)
@@ -641,7 +619,7 @@ void setup()
 	door_status_hist = (current_log.status == 1 ? 0b1111 : 0b0000);
 	Log.info("ok!\r\n");
 
-	Log.info("OpenGarage has finished booting and is going into monitor mode. Read Interval=%i, Sensor Type=%i\r\n", (Config.get("read_interval").ival * 1000), Config.get("sensor_type").ival);
+	Log.info("MyGarage has finished booting and is going into monitor mode. Read Interval=%i, Sensor Type=%i\r\n", (Config.get("read_interval").ival * 1000), Config.get("sensor_type").ival);
 
 }
 
