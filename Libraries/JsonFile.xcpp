@@ -1,0 +1,81 @@
+#include "JsonFile.h"
+#include "Logging.h"
+
+
+// initialize the configfile object by reading data from
+// a json file on the SPIFFS and making the json root
+// object available globaly through config.json()
+bool JsonFile::init(String filename, JsonObject& defaultConfig){
+
+	this->filename = filename;
+	this->defaultConfig = defaultConfig;
+
+	return this->load();
+}
+
+bool JsonFile::load(){
+	Log.info("Json File loaded. Filename=%s\r\n", this->filename);
+	File jsonFile = SPIFFS.open(this->filename, "r");
+
+	if (!jsonFile) {
+		Log.error("Failed to load Json File - File Not Found. Filename=%s\r\n", this->filename);
+		return false;
+	}
+
+	size_t size = jsonFile.size();
+	if (size > 1024) {
+		Log.error("Failed to load Json File - File is Too Large. Filename=%s, Size=%iK, MaxSize=%iK.\r\n", this->filename, size, 1024);
+		return false;
+	}
+
+	// We don't use String here because ArduinoJson library requires the input
+	// buffer to be mutable. If you don't use ArduinoJson, you may as well
+	// use jsonFile.readString instead.
+	String jsonStr = jsonFile.readString();
+	
+	this->jsonVar = this->jsonBuf.parseObject(jsonStr);
+
+	if (!this->json().success()) {
+		Log.error("Failed to load Json File - Json Parse Unsuccessful. Filename=%s\r\n", this->filename);
+		return false;
+	}
+
+	String retJson;
+	this->json().printTo(retJson);
+	Log.debug("Json File loaded successfully! Filename=%s, Data=%s\r\n", this->filename, retJson.c_str());
+
+	jsonFile.close();
+	return true;
+}
+
+bool JsonFile::save() {
+
+	File jsonFile = SPIFFS.open(this->filename, "w");
+
+	if (!jsonFile) {
+		Log.error("Failed to open Json File for writing. Filename=%s\r\n", this->filename);
+		return false;
+	}
+
+	String retJson;
+	this->json().printTo(retJson);
+	this->json().printTo(jsonFile);
+	jsonFile.close();
+	Log.debug("Saved Json File. Filename=%s, Data=%s\r\n", this->filename, retJson.c_str());
+
+	return true;
+}
+
+bool JsonFile::erase() {
+	Log.info("Json File erased. Filename=%s\r\n", this->filename);
+	return SPIFFS.remove(this->filename);
+}
+
+JsonObject& get(String key){
+	Log.info("Fetching a value from JsonFile object. Filename=%s, ObjectKey=%s\r\n", this->filename, key.c_str());
+	for (JsonArray::iterator it=this->jsonVar.begin(); it!=this->jsonVar.end(); ++it) {
+		if(it->name == key){
+			return &it;
+		}
+	}
+}
