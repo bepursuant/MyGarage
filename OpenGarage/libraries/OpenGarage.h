@@ -25,38 +25,34 @@
 
 #include <Arduino.h>
 #include <FS.h>
-#include "defines.h"
+#include "Logging.h"
+#include "../defines.h"
 
-struct OptionStruct {
-  String name;
-  uint ival;
-  uint max;
-  String sval;
-};
-
+// to hold status logs
 struct LogStruct {
   ulong tstamp; // time stamp
   uint status;  // door status
-  uint dist;    // distance
+  uint value;    // read_value
 };
 
 class OpenGarage {
 public:
-  static OptionStruct options[];
-  static byte state;
-  static byte alarm;
+  static uint current_log_id;
+
   static void begin();
-  static void options_setup();
-  static void options_load();
-  static void options_save();
-  static void options_reset();
   static void restart() { digitalWrite(PIN_RESET, LOW); }
+
+  static void log_reset();
+  static void write_log(const LogStruct& data);
+  static bool read_log_start();
+  static bool read_log(LogStruct& data, uint rec);
+  static bool read_log_next(LogStruct& data);
+  static bool read_log_end();
+
   static uint read_distance(); // centimeter
-  static byte get_mode()   { return options[OPTION_MOD].ival; }
   static byte get_button() { return digitalRead(PIN_BUTTON); }
   static byte get_led()    { return digitalRead(PIN_LED); }
-  static bool get_cloud_access_en();
-  static bool get_local_access_en();
+
   static void set_led(byte status)   { digitalWrite(PIN_LED, status); }
   static void set_relay(byte status) { digitalWrite(PIN_RELAY, status); }
   static void click_relay(uint ms=1000) {
@@ -64,22 +60,15 @@ public:
     delay(ms);
     digitalWrite(PIN_RELAY, LOW);
   }
-  static int find_option(String name);
-  static void log_reset();
-  static void write_log(const LogStruct& data);
-  static bool read_log_start();
-  static bool read_log_next(LogStruct& data);
-  static bool read_log_end();
-  static void play_note(uint freq);
-  static void set_alarm() { alarm = options[OPTION_ALM].ival * 10 + 1; }
-  static void reset_alarm() { alarm = 0; }
+  static bool open();
+  static bool close();
+
 private:
-  static ulong echo_time;
+
   static ulong read_distance_once();
   static File log_file;
   static void button_handler();
   static void led_handler();
-  static void play_startup_tune();
 };
 
 #endif  // _OPENGARAGE_H_

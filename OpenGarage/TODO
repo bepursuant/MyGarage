@@ -1,0 +1,6 @@
+====== TODO ======
+
+Read latest log file to prevent an unncessary status update on reboot
+Refactor log file and config file to JsonFile library
+
+Fix blocking SMTP Mailer library. Maybe revert to Mail and SMTPClient lib?
