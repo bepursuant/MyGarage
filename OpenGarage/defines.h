@@ -20,6 +20,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#ifndef _DEFINES_H
+#define _DEFINES_H
+
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
@@ -28,12 +31,10 @@
 #include <WiFiUdp.h>
 #include <time.h>
 #include <FS.h>
-
-#ifndef _DEFINES_H
-#define _DEFINES_H
-
+#include <vector>
+ 
 /** Firmware version, hardware version, and maximal values */
-#define OG_FIRMWARE_VERSION    100   // Firmware version: 100 means 1.0.0
+#define FIRMWARE_VERSION    201  // Firmware version: 100 means 1.0.0
 
 /** GPIO pins */
 #define PIN_TRIG   D1
@@ -44,33 +45,40 @@
 #define PIN_CLOSED D7
 #define PIN_RESET  D8
 
-// Default device name
-#define DEFAULT_NAME    "My OpenGarage"
-// Default device key
-#define DEFAULT_DEVICEKEY    "opendoor"
 // Config file name
 #define CONFIG_FNAME    "/config.dat"
+
 // Log file name
 #define LOG_FNAME       "/log.dat"
+#define LOGLEVEL LOGGING_VERBOSE
 
-#define OG_SENSOR_ULTRASONIC_CEILING  0
-#define OG_SENSOR_ULTRASONIC_SIDE     1
-#define OG_SENSOR_MAGNETIC_CLOSED	  2
 
-#define OG_MODE_AP       0xA9
-#define OG_MODE_STA      0x2A
+#define SENSORTYPE_ULTRASONIC_CEILING  0
+#define SENSORTYPE_ULTRASONIC_SIDE     1
+#define SENSORTYPE_MAGNETIC_CLOSED	   2
 
-#define OG_STATE_INITIAL        0
-#define OG_STATE_CONNECTING     1
-#define OG_STATE_CONNECTED      2
-#define OG_STATE_TRY_CONNECT    3
-#define OG_STATE_RESET          9
-#define OG_STATE_RESTART        10
+
+#define DEFAULT_NAME		"My OpenGarage"
+#define DEFAULT_DEVICEKEY	"opendoor"
+#define DEFAULT_DTH				50
+#define DEFAULT_READ_INTERVAL	10
+#define DEFAULT_SENSORTYPE SENSORTYPE_MAGNETIC_CLOSED
+#define DEFAULT_HTTP_PORT		80
+#define DEFAULT_SMTP_NOTIFY_BOOT	0
+#define DEFAULT_SMTP_NOTIFY_STATUS	0
+#define DEFAULT_SMTP_HOST	""
+#define DEFAULT_SMTP_PORT	587
+#define DEFAULT_SMTP_USER	""
+#define DEFAULT_SMTP_PASS	""
+#define DEFAULT_SMTP_FROM	""
+#define DEFAULT_SMTP_TO		""
 
 #define MAX_LOG_RECORDS    100
+#define WIFI_PORTAL_TIMEOUT 120 //seconds
+
 // door status histogram
 // number of values (maximum is 8)
-#define DOOR_STATUS_HIST_K  4
+#define DOOR_STATUS_HIST_K        4
 #define DOOR_STATUS_REMAIN_CLOSED 0
 #define DOOR_STATUS_REMAIN_OPEN   1
 #define DOOR_STATUS_JUST_OPENED   2
@@ -90,26 +98,12 @@
 #define HTML_UPLOAD_FAILED     0x40
 #define HTML_REDIRECT_HOME     0xFF
 
-typedef enum {
-	OPTION_FIRMWARE_VERSION = 0, // firmware version
-	OPTION_SENSOR_TYPE,			// sensor type
-	OPTION_DTH,					// distance threshold
-	OPTION_RIV,					// read interval
-	OPTION_HTTP_PORT,			// http port
-	OPTION_MOD,					// mode
-	OPTION_SSID,				// wifi ssid
-	OPTION_PASS,				// wifi password
-	OPTION_DEVICEKEY,			// device key
-	OPTION_NAME,				// device name
-	NUM_OPTIONS					// number of options
-} OG_OPTION_enum;
 
 #define BUTTON_RESET_TIMEOUT  4000  // if button is pressed for at least 5 seconds, reset
 #define LED_FAST_BLINK 100
 #define LED_SLOW_BLINK 500
 
 #define TIME_SYNC_TIMEOUT  3600
-#define CONNECT_AP_TIMEOUT 30000
 
 /** Serial debug functions */
 #define SERIAL_DEBUG

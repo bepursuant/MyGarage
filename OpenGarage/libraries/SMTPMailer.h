@@ -1,5 +1,5 @@
-#ifndef SMTPMAILER_H_
-#define SMTPMAILER_H_
+#ifndef _SMTPMAILER_H
+#define _SMTPMAILER_H
 
 
 #include "Logging.h"
@@ -12,15 +12,15 @@ typedef unsigned char byte;
 class SMTPMailer{
 
 	public:
-		const char* smtp_host;
+		String smtp_host;
 		int smtp_port;
-		const char* smtp_user;
-		const char* smtp_pass;
+		String smtp_user;
+		String smtp_pass;
 
 		WiFiClient client;
 
-		void init(const char* server, int port, const char* user, const char* password);
-		byte send(const char* from, const char* to, const char* subject, const char* body);
+		void init(String server, int port, String user, String password);
+		byte send(String from, String to, String subject, String body);
 		byte awaitResponse();
 		void eFail();
 
