@@ -19,7 +19,10 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="MyGarage.ino" />
+<<<<<<< HEAD
     <None Include="Utilities.ino" />
+=======
+>>>>>>> develop
     <None Include="Portal.html">
       <Filter>Resource Files</Filter>
     </None>
@@ -34,9 +37,12 @@
     <ClInclude Include="__vm\.MyGarage.vsarduino.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+<<<<<<< HEAD
     <ClInclude Include="test.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+=======
+>>>>>>> develop
     <ClInclude Include="Config.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -46,14 +52,23 @@
     <ClInclude Include="Mail.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+<<<<<<< HEAD
+=======
+    <ClInclude Include="Assets.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+>>>>>>> develop
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="OpenGarage.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+<<<<<<< HEAD
     <ClCompile Include="test.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+=======
+>>>>>>> develop
     <ClCompile Include="CompileAssets.cpp">
       <Filter>Asset Compiler</Filter>
     </ClCompile>

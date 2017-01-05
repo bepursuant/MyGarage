@@ -106,5 +106,9 @@ typedef long __PTRDIFF_TYPE__;
 #define noInterrupts() cli()
 
 #include "MyGarage.ino"
+<<<<<<< HEAD
+=======
+#include "Portal.ino"
+>>>>>>> develop
 #include "Utilities.ino"
 #endif
