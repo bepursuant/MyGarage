@@ -1,422 +1,409 @@
-const char assets_portal[] PROGMEM = R"=====(﻿<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8" />
-<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-<title class="name">MyGarage</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.2/semantic.min.css" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.address/1.6/jquery.address.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.2/semantic.min.js"></script>
-</head>
-<body style="overflow-y: scroll;">
-<div class="ui container">
-<div class="ui stackable top attached pointing menu">
-<a href="/" id="tab-home" class="header item name" data-tab="home">
-<i class="home icon"></i> MyGarage
-</a>
-<a id="tab-configuration" class="item" data-tab="configuration">
-<i class="wrench icon"></i> Configuration
-</a>
-</div>
-<div class="ui bottom attached tab segment active" data-tab="home">
-<!-- current status indicator -->
-<div id="current-status" class="ui items">
-<div class="ui item">
-<div class="content">
-<div class="header name">MyGarage</div>
-<div class="meta">
-<b id="lbl_status"></b> at <b id="lbl_time"></b>
-</div>
-<div class="description">
-<!-- door action button -->
-<div id="door-button" class="ui massive button primary fluid">Toggle</div>
-</div>
-</div>
-</div>
-</div>
-<!-- history of door status -->
-<div id="door-history" class="ui feed">
-<div class="event">
-<div class="label">
-<i class="pencil icon"></i>
-</div>
-<div class="content">
-<div class="summary">
-You posted on your friend <a>Stevie Feliciano's</a> wall.
-<div class="date">Today</div>
-</div>
-</div>
-</div>
-</div>
-<script>
-$(document).ready(function () {
-
-$("#door-button").click(function (e) {
-$("#door-button").addClass('loading');
-clear_msg();
-
-$.getJSON("json/controller?click=1", function (postController) {
-$("#door-button").removeClass('loading');
-if (postController.result != 1) {
-show_msg("Check device key and try again.", 2000, "red");
-}
-}, 'POST');
-});
-
-$("#tab-status").click(function () {
-refresh_status();
-});
-});
-
-function refresh_status() {
-
-// refresh the current door status and controls
-$.getJSON("/json/status", function (jsonStatus) {
-$("#lbl_status").text(jsonStatus.status.door_status == 1 ? "OPEN" : "CLOSED");
-$("#door-button").text(jsonStatus.status.door_status == 1 ? "Close Door" : "Open Door");
-$("#current-status i").removeClass("lock unlock").addClass(jsonStatus.status.door_status == 1 ? "unlock" : "lock");
-
-// convert timestamp into a Date object, then convert to human readable string
-update_time = new Date(1000 * jsonStatus.status.last_status_change);
-$("#lbl_time").text(update_time.toLocaleString());
-});
-
-// refresh the logs
-$.getJSON("/json/logs", function (jsonLogs) {
-var logs = jsonLogs.logs;
-
-// quickly sort the logs by timestamp
-logs.sort(function (a, b) { return b["tstamp"] - a["tstamp"]; });
-var ldate = new Date();
-
-// write the log, item by item, to the history list
-$("#door-history").html("");	// clear current contents
-for (var i = 0; i < logs.length; i++) {
-ldate.setTime(logs[i]["tstamp"] * 1000);
-var r = "<div class=\"ui icon message " + (logs[i]["status"] ? "red" : "green") + "\"><i class=\"" + (logs[i]["status"] ? "unlock" : "lock") + " icon\"></i><div class=\"ui content\">Door " + (logs[i]["status"] ? "opened" : "closed") + "<div class=\"sub header\">" + ldate.toLocaleString() + "<" + "/div></" + "div></" + "div>"
-$("#door-history").append(r);
-}
-});
-
-}
-</script>
-</div>
-<div class="ui bottom attached tab segment" data-tab="configuration">
-<form id="config_form" action="/json/config" method="POST" class="ui form">
-<div class="ui top attached pointing menu">
-<a class="item active" data-tab="basic-options">Basic</a>
-<a class="item" data-tab="sensor-settings">Sensor</a>
-<a class="item" data-tab="email-notifications">Notifications</a>
-<a class="item" data-tab="firmware-update">Update</a>
-</div>
-<!-- device settings -->
-<div class="ui bottom attached active tab segment" data-tab="basic-options">
-<div class="fields">
-<div class="three wide field">
-<label for="name">Device Name</label>
-<input type="text" size=20 maxlength=32 id="name" name="name" class="name" value="">
-</div>
-<div class="three wide field">
-<label for="http_port">HTTP Port</label>
-<input type="text" size=5 maxlength=5 id="http_port" name="http_port" value="">
-</div>
-</div>
-<div class="fields">
-<div class="six wide field">
-<div class="ui checkbox">
-<input type="checkbox" id="change_devicekey" name="change_devicekey">
-<label for="change_devicekey">Change Device Key</label>
-</div>
-</div>
-</div>
-<div class="fields">
-<div class="three wide field">
-<label for="new_devicekey">New Device Key</label>
-<input type="password" size="24" maxlength="32" id="new_devicekey" name="new_devicekey" disabled>
-</div>
-<div class="three wide field">
-<label for="config_devicekey">Confirm</label>
-<input type="password" size="24" maxlength="32" id="confirm_devicekey" name="confirm_devicekey" disabled>
-</div>
-</div>
-<div class="fields">
-<div class="two wide field">
-<label for="autoclose">Autoclose after (min)</label>
-<input type="text" size=4 maxlength=4 id="dth" name="dth" value="">
-</div>
-</div>
-</div>
-<!-- sensor settings -->
-<div class="ui bottom attached tab segment" data-tab="sensor-settings">
-<div class="fields">
-<div class="three wide field">
-<label for="sensor_type">Sensor Type</label>
-<select name="sensor_type" id="sensor_type" class="dropdown">
-<option value="0">Ultrasonic - Ceiling Mount</option>
-<option value="1">Ultrasonic - Side Mount</option>
-<option value="2">Magnetic - Closed Sensor</option>
-</select>
-</div>
-<div class="two wide field">
-<label for="dth">Threshold (cm)</label>
-<input type="text" size=4 maxlength=4 id="dth" name="dth" value="">
-</div>
-<div class="two wide field">
-<label for="read_interval">Read Interval (s)</label>
-<input type="text" size=3 maxlength=3 id="read_interval" name="read_interval" value="">
-</div>
-</div>
-</div>
-<!-- email status notifications -->
-<div class="ui bottom attached tab segment" data-tab="email-notifications">
-<h4 class="ui dividing header">SMTP Server Settings</h4>
-<div class="fields">
-<div class="three wide field">
-<label for="smtp_host">Hostname or IP</label>
-<input type="text" maxlength="32" id="smtp_host" name="smtp_host" />
-</div>
-<div class="three wide field">
-<label for="smtp_port">Port</label>
-<input type="text" maxlength="5" id="smtp_port" name="smtp_port" />
-</div>
-</div>
-<div class="fields">
-<div class="three wide field">
-<label for="smtp_user">Username</label>
-<input type="text" maxlength="32" id="smtp_user" name="smtp_user" />
-</div>
-<div class="three wide field">
-<label for="smtp_pass">Password</label>
-<input type="password" maxlength="32" id="smtp_pass" name="smtp_pass" />
-</div>
-</div>
-<div class="fields">
-<div class="six wide field">
-<label for="smtp_from">Send Emails From</label>
-<input type="text" maxlength="32" id="smtp_from" name="smtp_from" />
-</div>
-</div>
-<h4 class="ui dividing header">Notification Settings</h4>
-<div class="fields">
-<div class="six wide field">
-<label for="smtp_to">Send Email Notification To</label>
-<input type="text" maxlength="32" id="smtp_to" name="smtp_to" />
-</div>
-</div>
-<div class="grouped fields">
-<label>When</label>
-<div class="field ui toggle checkbox">
-<input type="hidden" name="smtp_notify_status" value="0" />
-<input type="checkbox" id="smtp_notify_status" name="smtp_notify_status" class="hidden" />
-<label>Door Status Changes</label>
-</div>
-<div class="field ui toggle checkbox">
-<input type="hidden" name="smtp_notify_boot" value="0" />
-<input type="checkbox" id="smtp_notify_boot" name="smtp_notify_boot" class="hidden" />
-<label>Device Boots or Reboots</label>
-</div>
-</div>
-</div>
-<!-- firmware update -->
-<div class="ui bottom attached tab segment" data-tab="firmware-update">
-<div class="fields">
-<div class="twelve wide field">
-<label for="firmware_file">New Firmware File (.bin)</label>
-<div class="ui action input">
-<input type="file" id="firmware_file" name="firmware_file" accept=".bin">
-<label for="firmware_file" id="firmware_button" name="firmware_button" class="ui icon button btn-file">
-<i class="folder basic icon"></i>
-</label>
-</div>
-</div>
-</div>
-</div>
-<div id="config_submit" class="ui button primary">Save Configuration</div>
-</form>
-<script>
-$(document).ready(function () {
-// setup log refresh button and load initial data
-$("#tab-configuration").click(function () {
-//refresh_configuration();
-});
-
-// enable/disable the change key textboxes when the "change key"
-// checkbox is changed
-$("#change_devicekey").on("change", function (e) {
-thisStatus = $(this).is(":checked");
-$("#new_devicekey").prop("disabled", !thisStatus)
-$("#confirm_devicekey").prop("disabled", !thisStatus);
-});
-
-$("#firmware_button").on("click", function (e) {
-$("#firmware_file").click();
-return false;
-});
-
-// intercept the form sumission
-$("#config_submit").on("click", function (e) {
-$(this).addClass("loading");
-
-if (confirm("Submit changes?")) {
-
-var config_form = $("#config_form");
-$(this).addClass("loading");
-
-// send xhr request
-$.ajax({
-type: config_form.attr("method"),
-url: config_form.attr("action"),
-data: config_form.serialize(),
-success: function (postConfig) {
-if (postConfig.result != 1) {
-if (postConfig.result == 2) show_msg("Check device key and try again.");
-else show_msg("Error code: " + postConfig.result + ", item: " + postConfig.item);
-} else {
-show_msg("config are successfully saved. Note that changes to some config may require a reboot");
-}
-
-$("#config_submit").removeClass("loading");
-}
-});
-}
-});
-});
-
-function refresh_configuration() {
-$("#config_form").addClass("loading");
-$("#config_refresh i").addClass("loading");
-$.getJSON("/json/config", function (jsonConfig) {
-$("#firmware_version").text("v" + (jsonConfig.config.firmware_version / 100 >> 0) + "." + (jsonConfig.config.firmware_version / 10 % 10 >> 0) + "." + (jsonConfig.config.firmware_version % 10 >> 0));
-$("#sensor_type").val(jsonConfig.config.sensor_type);
-$("#dth").val(jsonConfig.config.dth);
-$("#read_interval").val(jsonConfig.config.read_interval);
-$("#http_port").val(jsonConfig.config.http_port);
-$(".name").val(jsonConfig.config.name);
-$("#auth").val(jsonConfig.config.auth);
-
-$("#smtp_notify_boot").prop("checked", jsonConfig.config.smtp_notify_boot == "on" ? 1 : 0);
-$("#smtp_notify_status").prop("checked", jsonConfig.config.smtp_notify_status == "on" ? 1 : 0);
-
-$("#smtp_host").val(jsonConfig.config.smtp_host);
-$("#smtp_port").val(jsonConfig.config.smtp_port);
-$("#smtp_user").val(jsonConfig.config.smtp_user);
-$("#smtp_pass").val(jsonConfig.config.smtp_pass);
-$("#smtp_from").val(jsonConfig.config.smtp_from);
-$("#smtp_to").val(jsonConfig.config.smtp_to);
-$("#smtp_subject").val(jsonConfig.config.smtp_subject);
-
-$("#config_form").removeClass("loading");
-$("#config_refresh i").removeClass("loading");
-});
-}
-</script>
-</div>
-</div>
-<!-- Show this form when the session is not authenticated and ask for
-the user to provide the device key -->
-<div id="login-modal" class="ui small modal">
-<div class="header">Authentication</div>
-<div class="content">
-<form id="auth_form" action="/auth" method="POST" class="ui form">
-<div class="ui form">
-<div class="field">
-<label for="auth_devicekey">Enter Device Key</label>
-<input type="password" name="auth_devicekey" id="auth_devicekey">
-</div>
-<!-- functionality to be added later
-<div class="inline field">
-<div class="ui checkbox">
-<input type="checkbox" />
-<label>Remember me</label>
-</div>
-</div-->
-<div class="field">
-<input type="submit" value="Authenticate" class="ui button large fluid green">
-</div>
-</div>
-</form>
-</div>
-<script>
-$(document).ready(function () {
-// intercept form submission
-$("#auth_form").on("submit", function () {
-
-auth_form = $("#auth_form");
-
-// send xhr request
-$.ajax({
-type: auth_form.attr("method"),
-url: auth_form.attr("action"),
-data: auth_form.serialize(),
-success: function (postAuth) {
-if (postAuth.result == "AUTH_SUCCESS") {
-setCookie("OG_TOKEN", postAuth.token, 0);
-$("#login-modal").modal("hide");
-} else {
-alert("Please try again");
-}
-}
-});
-
-// prevent submitting again
-return false;
-});
-
-if (!getCookie("OG_TOKEN")) {
-$("#login-modal").modal("show");//"setting","closable",false).modal("show");
-}
-
-});
-
-$("#auth_submit").click(function () {
-$("#auth_form").submit()
-});
-</script>
-<script>
-$(document).ready(function () {
-//$("select.dropdown").dropdown();
-$(".checkbox").checkbox();
-
-// setup tab behavior on top menu items
-$(".ui.menu a.item").tab({
-history: true
-});
-
-refresh_status();
-refresh_configuration();
-
-});
-function clear_msg() {
-$("#msg").html("");
-}
-
-function show_msg(msg_text, msg_class = "", msg_timeout = 10000) {
-var message = "<div class=\"ui message " + msg_class + "\">" + msg_text + "</div>";
-$("#msg").html(message);
-setTimeout(clear_msg, msg_timeout);
-}
-
-function id(s) { return document.getElementById(s); }
-
-function setCookie(key, value, expire_days = 1) {
-if (expire_days != 0) {
-var expires = new Date();
-expires.setTime(expires.getTime() + (expire_days * 24 * 60 * 60 * 1000));
-document.cookie = key + "=" + value + ";expires=" + expires.toUTCString();
-} else {
-document.cookie = key + "=" + value + ";";
-}
-}
-
-function getCookie(key) {
-var keyValue = document.cookie.match("(^|;) ?" + key + "=([^;]*)(;|$)");
-return keyValue ? keyValue[2] : null;
-}
-</script>
-<p id="msg"></p>
-</div>
-</body>
+const char assets_portal[] PROGMEM = R"=====(﻿<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title class="name">MyGarage</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.2/semantic.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.address/1.6/jquery.address.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.2/semantic.min.js"></script>
+</head>
+<body style="overflow-y: scroll;margin-top:1em;">
+<!-- CONNECT TO DEVICE MODAL -->
+<div id="login-modal" class="ui small modal">
+<h2 class="ui header">
+<i class="compress icon"></i>
+<div class="content">
+Connect to Device
+<div class="sub header">
+Enter device ip and key to connect
+</div>
+</div>
+</h2>
+<div class="content">
+<form id="connect_form" action="/auth" method="POST" class="ui form">
+<div class="ui form">
+<div class="field">
+<label for="device_ip">Device IP:</label>
+<input type="text" name="device_ip" id="device_ip" placeholder="localhost" />
+</div>
+<div class="field">
+<label for="auth_devicekey">Device Key:</label>
+<input type="password" name="auth_devicekey" id="auth_devicekey" />
+</div>
+<div class="field">
+<input type="submit" value="Connect" class="ui button large fluid primary" />
+</div>
+</div>
+</form>
+</div>
+</div>
+<div class="ui container">
+<!--  MAIN MENU -->
+<div class="ui stackable top attached stackable pointing large inverted menu">
+<a href="/" class="header item">
+<i class="home icon"></i> MyGarage
+</a>
+<a id="tab-status" class="item active" data-tab="status">
+<i class="heartbeat icon"></i> Status
+</a>
+<a id="tab-configuration" class="item" data-tab="configuration">
+<i class="wrench icon"></i> Configuration
+</a>
+<a id="tab-device" class="item right">
+<i class="wifi icon"></i>
+Connected to&nbsp;<b id="lbl_name">localhost</b>
+</a>
+</div>
+<!-- MAIN PAGE -->
+<div class="ui attached tab segment active" data-tab="status">
+<!-- CURRENT STATUS -->
+<div id="current-status" class="ui items">
+<div class="ui item">
+<div class="content">
+<div class="header name">MyGarage</div>
+<div class="meta">
+<b id="lbl_status"></b> at <b id="lbl_time"></b>
+</div>
+<div class="description">
+<div id="door-button" class="ui massive button primary fluid">Toggle</div>
+</div>
+</div>
+</div>
+</div>
+<!-- HISTORICAL STATUS -->
+<div id="door-history" class="ui feed">
+</div>
+</div>
+<!-- CONFIGURATION PAGE -->
+<div class="ui attached tab segment" data-tab="configuration">
+<form id="config_form" name="config_form" action="/json/config" method="POST" class="ui form" enctype="multipart/form-data">
+<!-- CONFIGURATION MENU -->
+<div class="ui top attached pointing inverted stackable menu">
+<a class="item active" data-tab="basic-options">
+<i class="setting icon"></i> Device
+</a>
+<a class="item" data-tab="network-settings">
+<i class="wifi icon"></i> Network
+</a>
+<a class="item" data-tab="sensor-settings">
+<i class="unhide icon"></i> Sensor
+</a>
+<a class="item" data-tab="email-notifications">
+<i class="mail icon"></i> Notifications
+</a>
+<a class="item" data-tab="firmware-update">
+<i class="upload icon"></i> Update
+</a>
+</div>
+<!-- DEVICE SETTINGS -->
+<div class="ui attached active tab segment" data-tab="basic-options">
+<div class="fields">
+<div class="three wide field">
+<label for="name">Device Name</label>
+<input type="text" size=20 maxlength=32 id="name" name="name" class="name" value="">
+</div>
+<div class="three wide field">
+<label for="http_port">HTTP Port</label>
+<input type="text" size=5 maxlength=5 id="http_port" name="http_port" value="">
+</div>
+</div>
+<div class="fields">
+<div class="six wide field">
+<div class="ui checkbox">
+<input type="checkbox" id="change_devicekey" name="change_devicekey">
+<label for="change_devicekey">Change Device Key</label>
+</div>
+</div>
+</div>
+<div class="fields">
+<div class="three wide field">
+<label for="new_devicekey">New Device Key</label>
+<input type="password" size="24" maxlength="32" id="new_devicekey" name="new_devicekey" disabled>
+</div>
+<div class="three wide field">
+<label for="config_devicekey">Confirm</label>
+<input type="password" size="24" maxlength="32" id="confirm_devicekey" name="confirm_devicekey" disabled>
+</div>
+</div>
+<div class="fields">
+<div class="two wide field">
+<label for="autoclose">Autoclose after (min)</label>
+<input type="text" size=4 maxlength=4 id="dth" name="dth" value="">
+</div>
+</div>
+</div>
+<!-- SENSOR SETTINGS -->
+<div class="ui attached tab segment" data-tab="sensor-settings">
+<div class="fields">
+<div class="three wide field">
+<label for="sensor_type">Sensor Type</label>
+<select name="sensor_type" id="sensor_type" class="dropdown">
+<option value="0">Ultrasonic - Ceiling Mount</option>
+<option value="1">Ultrasonic - Side Mount</option>
+<option value="2">Magnetic - Closed Sensor</option>
+</select>
+</div>
+<div class="two wide field">
+<label for="dth">Threshold (cm)</label>
+<input type="text" size=4 maxlength=4 id="dth" name="dth" value="">
+</div>
+<div class="two wide field">
+<label for="read_interval">Read Interval (s)</label>
+<input type="text" size=3 maxlength=3 id="read_interval" name="read_interval" value="">
+</div>
+</div>
+</div>
+<!-- NOTIFICATION SETTINGS -->
+<div class="ui attached tab segment" data-tab="email-notifications">
+<h4 class="ui dividing header">SMTP Server Settings</h4>
+<div class="fields">
+<div class="three wide field">
+<label for="smtp_host">Hostname or IP</label>
+<input type="text" maxlength="32" id="smtp_host" name="smtp_host" />
+</div>
+<div class="three wide field">
+<label for="smtp_port">Port</label>
+<input type="text" maxlength="5" id="smtp_port" name="smtp_port" />
+</div>
+</div>
+<div class="fields">
+<div class="three wide field">
+<label for="smtp_user">Username</label>
+<input type="text" maxlength="32" id="smtp_user" name="smtp_user" />
+</div>
+<div class="three wide field">
+<label for="smtp_pass">Password</label>
+<input type="password" maxlength="32" id="smtp_pass" name="smtp_pass" />
+</div>
+</div>
+<div class="fields">
+<div class="six wide field">
+<label for="smtp_from">Send Emails From</label>
+<input type="text" maxlength="32" id="smtp_from" name="smtp_from" />
+</div>
+</div>
+<h4 class="ui dividing header">Notification Settings</h4>
+<div class="fields">
+<div class="six wide field">
+<label for="smtp_to">Send Email Notification To</label>
+<input type="text" maxlength="32" id="smtp_to" name="smtp_to" />
+</div>
+</div>
+<div class="grouped fields">
+<label>When</label>
+<div class="field ui toggle checkbox">
+<input type="hidden" name="smtp_notify_status" value="0" />
+<input type="checkbox" id="smtp_notify_status" name="smtp_notify_status" class="hidden" />
+<label>Door Status Changes</label>
+</div>
+<div class="field ui toggle checkbox">
+<input type="hidden" name="smtp_notify_boot" value="0" />
+<input type="checkbox" id="smtp_notify_boot" name="smtp_notify_boot" class="hidden" />
+<label>Device Boots or Reboots</label>
+</div>
+</div>
+</div>
+<!-- FIRMWARE UPDATE -->
+<div class="ui attached tab segment" data-tab="firmware-update">
+<div class="fields">
+<div class="twelve wide field">
+<label for="file">New Firmware File (.bin)</label>
+<div class="ui left icon input">
+<input type="file" id="file" name="file" accept=".bin" />
+<i class="file archive outline icon"></i>
+</div>
+</div>
+</div>
+</div>
+<!-- SUBMIT BUTTON -->
+<div class="ui bottom attached large blue button" id="config_submit">
+<i class="save icon"></i> Save
+</div>
+</form>
+</div>
+<!-- FOOTER -->
+<div class="ui bottom attached inverted segment">
+MyGarage is an <a href="https://github.com/bepursuant/MyGarage">Open Source Project</a>.
+</div>
+</div>
+<!-- SPA SCRIPTS -->
+<script>
+$(document).ready(function () {
+var deviceIP = "localhost";
+var deviceKey = "";
+// check auth status
+if (!getCookie("OG_TOKEN")) {
+$("#login-modal").modal("show");//"setting","closable",false).modal("show");
+}
+// setup checkbox behaviors
+$(".checkbox").checkbox();
+// setup tab behaviors
+$(".ui.menu a.item").tab();
+// load initial values
+refresh_status();
+// handle a door-button click event
+$("#door-button").click(function (e) {
+$("#door-button").addClass("loading");
+click_button();
+$("#door-button").removeClass("loading");
+});
+// refresh the status when the status tab is clicked
+$("#tab-status").click(function () {
+refresh_status();
+});
+// refresh the configuration when the config tab is clicked
+$("#tab-configuration").click(function () {
+refresh_configuration();
+});
+// handle a click of the config submit button
+$("#config_submit").click(function () {
+$("config_form").submit();
+});
+// intercept the auth form submission
+/*$("#auth_submit").click(function () {
+$("#connect_form").submit()
+});*/
+// enable/disable the change device key textboxes when 
+// the "change key" checkbox is changed
+/*$("#change_devicekey").on("change", function (e) {
+thisStatus = $(this).is(":checked");
+$("#new_devicekey").prop("disabled", !thisStatus)
+$("#confirm_devicekey").prop("disabled", !thisStatus);
+});*/
+// intercept auth form submission
+$("#connect_form").on("submit", function () {
+// send xhr request
+$.ajax({
+url: $(this).attr("action"),
+type: $(this).attr("method"),
+data: $(this).serialize(),
+success: function (postAuth) {
+if (postAuth.result == "AUTH_SUCCESS") {
+setCookie("OG_TOKEN", postAuth.token, 0);
+$("#login-modal").modal("hide");
+} else {
+alert("Please try again");
+$("#auth_devicekey").select();
+}
+}
+});
+// prevent submitting again
+return false;
+});
+// intercept the config form sumission
+$("#config_form").on("submit", function (e) {
+if (confirm("Submit changes?")) {
+var formData = new FormData($(this)[0]);
+// send xhr request
+$.ajax({
+url: $(this).attr("action"),
+type: $(this).attr("method"),
+data: formData,
+async: false,
+success: function (postConfig) {
+if (postConfig.result != 1) {
+if (postConfig.result == 2) {
+alert("Check device key and try again.");
+} else {
+alert("Error code: " + postConfig.result + ", item: " + postConfig.item);
+}
+} else {
+alert("config are successfully saved. Note that changes to some config may require a reboot");
+}
+return false;
+}
+});
+}
+// prevent submitting again
+return false;
+});
+});
+/**
+* Send a command to the device to click its relay
+*/
+function click_button() {
+// sent request as a POST to the controller - will be deprecated
+$.getJSON("json/controller?click=1", function (postController) {
+if (postController.result != 1) {
+alert("Check device key and try again.");
+}
+}, 'POST');
+}
+/**
+* Request the current status of the device and update its display on the page
+*/
+function refresh_status() {
+// refresh the current door status and controls
+$.getJSON("/json/status", function (jsonStatus) {
+var status = jsonStatus.status;
+$("#lbl_status").text(status.door_status == 1 ? "OPEN" : "CLOSED");
+$("#door-button").text(status.door_status == 1 ? "Close Door" : "Open Door");
+$("#current-status i").removeClass("lock unlock").addClass(status.door_status == 1 ? "unlock" : "lock");
+// convert timestamp into a Date object, then convert to human readable string
+update_time = new Date(1000 * status.last_status_change);
+$("#lbl_time").text(update_time.toLocaleString());
+});
+// refresh the logs
+$.getJSON("/json/logs", function (jsonLogs) {
+var logs = jsonLogs.logs;
+// quickly sort the logs by timestamp
+logs.sort(function (a, b) { return b["tstamp"] - a["tstamp"]; });
+var ldate = new Date();
+// write the log, item by item, to the history list
+$("#door-history").html("");	// clear current contents
+for (var i = 0; i < logs.length; i++) {
+ldate.setTime(logs[i]["tstamp"] * 1000);
+var r = "<div class=\"ui icon message " + (logs[i]["status"] ? "red" : "green") + "\"><i class=\"" + (logs[i]["status"] ? "unlock" : "lock") + " icon\"></i><div class=\"ui content\">Door " + (logs[i]["status"] ? "opened" : "closed") + "<div class=\"sub header\">" + ldate.toLocaleString() + "<" + "/div></" + "div></" + "div>"
+$("#door-history").append(r);
+}
+});
+}
+/**
+* Request the current configuration from the device and update the config form
+*/
+function refresh_configuration() {
+// request the configuration
+$.getJSON("/json/config", function (jsonConfig) {
+var config = jsonConfig.config;
+// update all the fields manually - there may be a better way
+$("#firmware_version").text("v" + (config.firmware_version / 100 >> 0) + "." + (config.firmware_version / 10 % 10 >> 0) + "." + (config.firmware_version % 10 >> 0));
+$("#sensor_type").val(config.sensor_type);
+$("#dth").val(config.dth);
+$("#read_interval").val(config.read_interval);
+$("#http_port").val(config.http_port);
+$("#name").val(config.name);
+$("#lbl_name").text(config.name);
+$("#auth").val(config.auth);
+$("#smtp_notify_boot").prop("checked", config.smtp_notify_boot == "on" ? 1 : 0);
+$("#smtp_notify_status").prop("checked", config.smtp_notify_status == "on" ? 1 : 0);
+$("#smtp_host").val(config.smtp_host);
+$("#smtp_port").val(config.smtp_port);
+$("#smtp_user").val(config.smtp_user);
+$("#smtp_pass").val(config.smtp_pass);
+$("#smtp_from").val(config.smtp_from);
+$("#smtp_to").val(config.smtp_to);
+$("#smtp_subject").val(config.smtp_subject);
+});
+}
+// allow for a cookie value to be set easily
+function setCookie(key, value, expire_days = 1) {
+if (expire_days != 0) {
+var expires = new Date();
+expires.setTime(expires.getTime() + (expire_days * 24 * 60 * 60 * 1000));
+document.cookie = key + "=" + value + ";expires=" + expires.toUTCString();
+} else {
+document.cookie = key + "=" + value + ";";
+}
+}
+// allow for a cookie value to be retrieved easily
+function getCookie(key) {
+var keyValue = document.cookie.match("(^|;) ?" + key + "=([^;]*)(;|$)");
+return keyValue ? keyValue[2] : null;
+}
+</script>
+</body>
 </html>
 )=====";

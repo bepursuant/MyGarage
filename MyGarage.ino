@@ -437,6 +437,10 @@ void on_sta_upload_fin() {
 	restart_timeout = millis() + 2000;
 }
 
+/*
+ * Handles the upload of a file from the configuration form, specifically
+ * used to do firmware updates through the web interface.
+ */
 void on_sta_upload() {
 	HTTPUpload& upload = server->upload();
 	oLog.info("Receiving file upload. Filename=%s...", upload.filename.c_str());
@@ -447,7 +451,6 @@ void on_sta_upload() {
 		if (!Update.begin(maxSketchSpace)) {
 			oLog.info("not enough space...nok!\r\n");
 		}
-
 	}
 	else if (upload.status == UPLOAD_FILE_WRITE) {
 		oLog.info(".");
@@ -457,15 +460,13 @@ void on_sta_upload() {
 
 	}
 	else if (upload.status == UPLOAD_FILE_END) {
-
 		oLog.info("ok!\r\n");
-
 	}
 	else if (upload.status == UPLOAD_FILE_ABORTED) {
 		Update.end();
 		oLog.info("upload aborted...nok!\r\n");
 	}
-	delay(0);
+	yield(); //to keep wifi chip happy
 }
 
 // time keeping routine - the ESP module provides a millis() function 

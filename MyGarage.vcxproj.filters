@@ -22,6 +22,9 @@
     <None Include="Portal.html">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="Portal.js">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="MyGarage.h">
