@@ -25,7 +25,7 @@
 
 #include <Arduino.h>
 #include <FS.h>
-#include "Logging.h"
+#include "Log.h"
 #include "MyGarage.h"
 
 // to hold status logs

@@ -54,6 +54,7 @@
 #define DEFAULT_SMTP_PASS	""
 #define DEFAULT_SMTP_FROM	""
 #define DEFAULT_SMTP_TO		""
+#define DEFAULT_AUTOCLOSE	0
 
 #define MAX_LOG_RECORDS    100
 #define WIFI_PORTAL_TIMEOUT 120 //seconds

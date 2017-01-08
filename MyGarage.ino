@@ -21,7 +21,8 @@ vector<ConfigStruct> defaultConfig = {
 	{ "smtp_user", DEFAULT_SMTP_USER },
 	{ "smtp_pass", DEFAULT_SMTP_PASS },
 	{ "smtp_from", DEFAULT_SMTP_FROM },
-	{ "smtp_to", DEFAULT_SMTP_TO }
+	{ "smtp_to", DEFAULT_SMTP_TO },
+	{ "autoclose", DEFAULT_AUTOCLOSE }
 };
 Config config = Config();
 
@@ -192,16 +193,20 @@ uint curr_utc_time() {
 
 void on_get_index()
 {
-	String html = FPSTR(assets_portal);
-	server_send_html(html);
+	oLog.verbose("GET /index ...");
+	server_send_html(assets_portal);
+	oLog.verbose("ok!\r\n");
 }
 
 void on_get_portal() {
+	oLog.verbose("GET /portal ...");
 	String html = FPSTR(assets_portal);
 	server_send_html(html);
+	oLog.verbose("ok!\r\n");
 }
 
 void on_get_controller() {
+	oLog.verbose("GET /controller ...");
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 
@@ -219,9 +224,11 @@ void on_get_controller() {
 	root.printTo(retJson);
 
 	server_send_json(retJson);
+	oLog.verbose("ok!\r\n");
 }
 
 void on_get_logs() {
+	oLog.verbose("GET /logs ...");
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 
@@ -249,9 +256,11 @@ void on_get_logs() {
 	root.printTo(retJson);
 
 	server_send_json(retJson);
+	oLog.verbose("ok!\r\n");
 }
 
 void on_get_config() {
+	oLog.verbose("GET /config ...");
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 
@@ -271,14 +280,17 @@ void on_get_config() {
 	conf["smtp_pass"] = config.getString("smtp_pass");
 	conf["smtp_from"] = config.getString("smtp_from");
 	conf["smtp_to"] = config.getString("smtp_to");
+	conf["autoclose"] = config.getInt("autoclose");
 
 	String retJson;
 	root.printTo(retJson);
 
 	server_send_json(retJson);
+	oLog.verbose("ok!\r\n");
 }
 
 void on_post_config() {
+	oLog.verbose("POST /config ...");
 	// Go through the posted arguments and attempt
 	// to save them to the configuration object
 	int numArgs = server->args();
@@ -296,9 +308,11 @@ void on_post_config() {
 	config.saveJsonFile(CONFIG_FNAME);
 
 	server_send_result(HTML_SUCCESS);
+	oLog.verbose("ok!\r\n");
 }
 
 void on_get_status() {
+	oLog.verbose("GET /status ...");
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 
@@ -319,17 +333,21 @@ void on_get_status() {
 	root.printTo(retJson);
 
 	server_send_json(retJson);
+
+	oLog.verbose("ok!\r\n");
 }
 
 void on_post_controller() {
+	oLog.verbose("POST /controller");
 	if (server->hasArg("click")) {
 		og.click_relay();
 		server_send_result(HTML_SUCCESS);
 	}
+	oLog.verbose("ok!\r\n");
 }
 
 void on_post_auth() {
-
+	oLog.verbose("POST /auth ...");
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 
@@ -337,16 +355,18 @@ void on_post_auth() {
 		token = server->arg("auth_devicekey");
 		root["result"] = "AUTH_SUCCESS";
 		root["token"] = token;
+		oLog.verbose("auth success...");
 	}
 	else {
 		root["result"] = "AUTH_FAILURE";
+		oLog.verbose("auth fail...");
 	}
 
 	String retJson;
 	root.printTo(retJson);
 
 	server_send_json(retJson);
-
+	oLog.verbose("ok!\r\n");
 }
 
 void process_ui()
@@ -524,7 +544,7 @@ void check_status() {
 			og.write_log(l);
 
 			// module : email alerts
-			if ((bool)config.getString("smtp_notify_status")) {
+			if (config.getInt("smtp_notify_status") == 1) {
 				mail.send(config.getString("smtp_from"), config.getString("smtp_to"), "Door status changed!", String(last_status_change));
 			}
 		}
@@ -584,7 +604,6 @@ void setup()
 	// or offer a configuration portal to the user to connect to a new
 	// network, will be garbage collected after connection
 	WiFiManager wifiManager;
-
 
 	//set config save notify callback
 	//wifiManager.setSaveConfigCallback(saveConfigCallback);

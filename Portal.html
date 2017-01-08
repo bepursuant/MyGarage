@@ -10,14 +10,14 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.address/1.6/jquery.address.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.2/semantic.min.js"></script>
 </head>
-<body>
+<body style="overflow-y: scroll;">
     <div class="ui container">
-        <div class="ui stackable menu">
+        <div class="ui stackable top attached pointing menu">
             <a href="/" id="tab-home" class="header item name" data-tab="home">
                 <i class="home icon"></i> MyGarage
             </a>
-            <a id="tab-configuration" class="right item" data-tab="configuration">
-                <i class="setting icon"></i>
+            <a id="tab-configuration" class="item" data-tab="configuration">
+                <i class="wrench icon"></i> Configuration
             </a>
         </div>
         <div class="ui bottom attached tab segment active" data-tab="home">
@@ -104,9 +104,8 @@
             </script>
         </div>
         <div class="ui bottom attached tab segment" data-tab="configuration">
-            <h3>Config</h3>
             <form id="config_form" action="/json/config" method="POST" class="ui form">
-                <div class="ui top attached tabular menu">
+                <div class="ui top attached pointing menu">
                     <a class="item active" data-tab="basic-options">Basic</a>
                     <a class="item" data-tab="sensor-settings">Sensor</a>
                     <a class="item" data-tab="email-notifications">Notifications</a>
@@ -140,6 +139,12 @@
                         <div class="three wide field">
                             <label for="config_devicekey">Confirm</label>
                             <input type="password" size="24" maxlength="32" id="confirm_devicekey" name="confirm_devicekey" disabled>
+                        </div>
+                    </div>
+                    <div class="fields">
+                        <div class="two wide field">
+                            <label for="autoclose">Autoclose after (min)</label>
+                            <input type="text" size=4 maxlength=4 id="dth" name="dth" value="">
                         </div>
                     </div>
                 </div>
@@ -234,7 +239,7 @@
                 $(document).ready(function () {
                     // setup log refresh button and load initial data
                     $("#tab-configuration").click(function () {
-                        refresh_configuration();
+                        //refresh_configuration();
                     });
 
                     // enable/disable the change key textboxes when the "change key"
@@ -309,22 +314,26 @@
             </script>
         </div>
     </div>
+    <!-- Show this form when the session is not authenticated and ask for
+         the user to provide the device key -->
     <div id="login-modal" class="ui small modal">
-        <div class="header">
-            Authentication
-        </div>
-        <div class="image content">
-            <div class="image">
-                <i class="lock icon"></i>
-            </div>
+        <div class="header">Authentication</div>
+        <div class="content">
             <form id="auth_form" action="/auth" method="POST" class="ui form">
-                <div class="field">
-                    <label for="">Enter Device Key:</label>
-                    <input type="text" name="auth_devicekey" id="auth_devicekey" />
-                </div>
-                <div class="field">
-                    <div id="auth_submit" class="ui green button right floated">
-                        <i class="unlock icon"></i> Authenticate
+                <div class="ui form">
+                    <div class="field">
+                        <label for="auth_devicekey">Enter Device Key</label>
+                        <input type="password" name="auth_devicekey" id="auth_devicekey">
+                    </div>
+                    <!-- functionality to be added later
+                        <div class="inline field">
+                        <div class="ui checkbox">
+                            <input type="checkbox" />
+                            <label>Remember me</label>
+                        </div>
+                    </div-->
+                    <div class="field">
+                        <input type="submit" value="Authenticate" class="ui button large fluid green">
                     </div>
                 </div>
             </form>
