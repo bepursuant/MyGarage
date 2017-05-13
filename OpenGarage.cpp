@@ -34,8 +34,6 @@ static const char* log_fname = LOG_FNAME;
 
 void OpenGarage::begin() {
 	oLog.info("Configuring GPIO...");
-	digitalWrite(PIN_RESET, HIGH);  // reset button
-	pinMode(PIN_RESET, OUTPUT);
 
 	digitalWrite(PIN_RELAY, LOW);   // relay
 	pinMode(PIN_RELAY, OUTPUT);

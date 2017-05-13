@@ -13,19 +13,25 @@
 #include <vector>
 
 // For handling physical button presses with debouncing and long press events
-#include <Button.h>
+//#include <Button.h>
  
 /** Firmware version, hardware version, and maximal values */
 #define FIRMWARE_VERSION    201  // Firmware version: 100 means 1.0.0
 
-/** GPIO pins */
+/** GPIO pins = AVOID D3, D4, and D8 due to boot mode! */
+// for ultrasonic sensors
 #define PIN_TRIG   D1
 #define PIN_ECHO   D4
+
+// open/close relay
 #define PIN_RELAY  D5
-#define PIN_BUTTON D0
+
+// reset button
+#define PIN_BUTTON D2
 #define PIN_LED    D6
 #define PIN_CLOSED D7
-#define PIN_RESET  D8
+
+#define PIN_RESET  D0
 
 // Config file name
 #define CONFIG_FNAME    "/config.json"

@@ -10,15 +10,15 @@ const char assets_portal[] PROGMEM = R"=====(﻿<!DOCTYPE html>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.address/1.6/jquery.address.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.2/semantic.min.js"></script>
 </head>
-<body style="overflow-y: scroll;margin-top:1em;">
+<body style="overflow-y: scroll;margin-top:1em;margin-bottom:1em;">
 <!-- CONNECT TO DEVICE MODAL -->
 <div id="login-modal" class="ui small modal">
 <h2 class="ui header">
 <i class="compress icon"></i>
 <div class="content">
-Connect to Device
+MyGarage
 <div class="sub header">
-Enter device ip and key to connect
+Connect to a device
 </div>
 </div>
 </h2>
@@ -79,14 +79,10 @@ Connected to&nbsp;<b id="lbl_name">localhost</b>
 </div>
 <!-- CONFIGURATION PAGE -->
 <div class="ui attached tab segment" data-tab="configuration">
-<form id="config_form" name="config_form" action="/json/config" method="POST" class="ui form" enctype="multipart/form-data">
 <!-- CONFIGURATION MENU -->
 <div class="ui top attached pointing inverted stackable menu">
 <a class="item active" data-tab="basic-options">
 <i class="setting icon"></i> Device
-</a>
-<a class="item" data-tab="network-settings">
-<i class="wifi icon"></i> Network
 </a>
 <a class="item" data-tab="sensor-settings">
 <i class="unhide icon"></i> Sensor
@@ -94,30 +90,38 @@ Connected to&nbsp;<b id="lbl_name">localhost</b>
 <a class="item" data-tab="email-notifications">
 <i class="mail icon"></i> Notifications
 </a>
-<a class="item" data-tab="firmware-update">
-<i class="upload icon"></i> Update
+<a class="item" id="update-button">
+<i class="download icon"></i> Update
 </a>
 </div>
+<!-- CONFIGURATION FORM (visible) -->
+<form id="config_form" name="config_form" action="/json/config" method="POST" class="ui form">
 <!-- DEVICE SETTINGS -->
 <div class="ui attached active tab segment" data-tab="basic-options">
+<h3 class="ui dividing header">Basic Settings</h3>
 <div class="fields">
-<div class="three wide field">
+<div class="six wide field">
 <label for="name">Device Name</label>
 <input type="text" size=20 maxlength=32 id="name" name="name" class="name" value="">
 </div>
-<div class="three wide field">
-<label for="http_port">HTTP Port</label>
-<input type="text" size=5 maxlength=5 id="http_port" name="http_port" value="">
 </div>
+<h3 class="ui dividing header">Device URL</h3>
+<div class="inline fields">
+<div class="three wide field">
+<label for="ip">http://</label>
+<input type="text" size=20 maxlength=32 id="ip" name="ip" disabled="disabled" value="192.168.1.83">
+</div>
+<div class="three wide field">
+<label for="http_port">:</label>
+<input type="text" size=5 maxlength=5 id="http_port" name="http_port" value="">
+</div>
 </div>
-<div class="fields">
-<div class="six wide field">
+<h4 class="ui dividing header">
 <div class="ui checkbox">
-<input type="checkbox" id="change_devicekey" name="change_devicekey">
 <label for="change_devicekey">Change Device Key</label>
+<input type="checkbox" id="change_devicekey" name="change_devicekey">
 </div>
-</div>
-</div>
+</h4>
 <div class="fields">
 <div class="three wide field">
 <label for="new_devicekey">New Device Key</label>
@@ -128,17 +132,12 @@ Connected to&nbsp;<b id="lbl_name">localhost</b>
 <input type="password" size="24" maxlength="32" id="confirm_devicekey" name="confirm_devicekey" disabled>
 </div>
 </div>
-<div class="fields">
-<div class="two wide field">
-<label for="autoclose">Autoclose after (min)</label>
-<input type="text" size=4 maxlength=4 id="dth" name="dth" value="">
-</div>
-</div>
 </div>
 <!-- SENSOR SETTINGS -->
 <div class="ui attached tab segment" data-tab="sensor-settings">
+<h3 class="ui dividing header">Sensor Settings</h3>
 <div class="fields">
-<div class="three wide field">
+<div class="four wide field">
 <label for="sensor_type">Sensor Type</label>
 <select name="sensor_type" id="sensor_type" class="dropdown">
 <option value="0">Ultrasonic - Ceiling Mount</option>
@@ -158,6 +157,26 @@ Connected to&nbsp;<b id="lbl_name">localhost</b>
 </div>
 <!-- NOTIFICATION SETTINGS -->
 <div class="ui attached tab segment" data-tab="email-notifications">
+<h3 class="ui dividing header">Notification Settings</h3>
+<div class="fields">
+<div class="six wide field">
+<label for="smtp_to">Send Email Notification To</label>
+<input type="text" maxlength="32" id="smtp_to" name="smtp_to" />
+</div>
+</div>
+<div class="grouped fields">
+<label>When</label>
+<div class="field ui toggle checkbox">
+<input type="hidden" name="smtp_notify_status" value="0" />
+<input type="checkbox" id="smtp_notify_status" name="smtp_notify_status" class="hidden" />
+<label>Door Status Changes</label>
+</div>
+<div class="field ui toggle checkbox">
+<input type="hidden" name="smtp_notify_boot" value="0" />
+<input type="checkbox" id="smtp_notify_boot" name="smtp_notify_boot" class="hidden" />
+<label>Device Boots or Reboots</label>
+</div>
+</div>
 <h4 class="ui dividing header">SMTP Server Settings</h4>
 <div class="fields">
 <div class="three wide field">
@@ -185,43 +204,16 @@ Connected to&nbsp;<b id="lbl_name">localhost</b>
 <input type="text" maxlength="32" id="smtp_from" name="smtp_from" />
 </div>
 </div>
-<h4 class="ui dividing header">Notification Settings</h4>
-<div class="fields">
-<div class="six wide field">
-<label for="smtp_to">Send Email Notification To</label>
-<input type="text" maxlength="32" id="smtp_to" name="smtp_to" />
-</div>
-</div>
-<div class="grouped fields">
-<label>When</label>
-<div class="field ui toggle checkbox">
-<input type="hidden" name="smtp_notify_status" value="0" />
-<input type="checkbox" id="smtp_notify_status" name="smtp_notify_status" class="hidden" />
-<label>Door Status Changes</label>
-</div>
-<div class="field ui toggle checkbox">
-<input type="hidden" name="smtp_notify_boot" value="0" />
-<input type="checkbox" id="smtp_notify_boot" name="smtp_notify_boot" class="hidden" />
-<label>Device Boots or Reboots</label>
-</div>
-</div>
-</div>
-<!-- FIRMWARE UPDATE -->
-<div class="ui attached tab segment" data-tab="firmware-update">
-<div class="fields">
-<div class="twelve wide field">
-<label for="file">New Firmware File (.bin)</label>
-<div class="ui left icon input">
-<input type="file" id="file" name="file" accept=".bin" />
-<i class="file archive outline icon"></i>
-</div>
-</div>
-</div>
 </div>
 <!-- SUBMIT BUTTON -->
-<div class="ui bottom attached large blue button" id="config_submit">
-<i class="save icon"></i> Save
+<div class="ui bottom attached large blue button" id="config_submit">
+<i class="save icon"></i> Save
 </div>
+</form>
+<!-- FIRMWARE UPDATE FORM (hidden) -->
+<form id="update_form" name="update_form" action="/update" method="POST" style="display:none;" enctype="multipart/form-data">
+<input type="file" id="update_file" name="file" accept=".bin" />
+<input type="submit" value="Submit Firmware File..." />
 </form>
 </div>
 <!-- FOOTER -->
@@ -250,6 +242,10 @@ $("#door-button").addClass("loading");
 click_button();
 $("#door-button").removeClass("loading");
 });
+// handle an update-button click event
+$("#update-button").click(function (e) {
+$("#update_file").click();
+});
 // refresh the status when the status tab is clicked
 $("#tab-status").click(function () {
 refresh_status();
@@ -260,7 +256,7 @@ refresh_configuration();
 });
 // handle a click of the config submit button
 $("#config_submit").click(function () {
-$("config_form").submit();
+$("#config_form").submit();
 });
 // intercept the auth form submission
 /*$("#auth_submit").click(function () {
@@ -303,6 +299,7 @@ url: $(this).attr("action"),
 type: $(this).attr("method"),
 data: formData,
 async: false,
+processData: false,
 success: function (postConfig) {
 if (postConfig.result != 1) {
 if (postConfig.result == 2) {

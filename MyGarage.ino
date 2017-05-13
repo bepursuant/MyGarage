@@ -1,12 +1,10 @@
 #include "MyGarage.h"	// global defines for MyGarage
 #include "Assets.h"		// compiled assets for web portal
+#include "Log.h"		// Pursuant library for logging messages
+#include "Config.h"		// Pursuant library to store/retrieve config
+#include "Mail.h"		// Pursuant library for sending email messages
+#include "OpenGarage.h"	// DEPRECATE for controlling the garage door
 
-// for logging all messages
-#include "Log.h"
-Log oLog = Log();
-
-// for storing/retrieving config values and loading/saving to json file
-#include "Config.h"
 vector<ConfigStruct> defaultConfig = {
 	{ "name", DEFAULT_NAME },
 	{ "devicekey", DEFAULT_DEVICEKEY },
@@ -24,18 +22,13 @@ vector<ConfigStruct> defaultConfig = {
 	{ "smtp_to", DEFAULT_SMTP_TO },
 	{ "autoclose", DEFAULT_AUTOCLOSE }
 };
-Config config = Config();
-
-// DEPRECATE for controlling the garage door
-#include "OpenGarage.h"
+Config config;
+Log oLog;
+Mail mail;
 OpenGarage og;
 
-// for sending email messages
-#include "Mail.h"
-Mail mail;
-
 // physical button for reset
-Button bReset(PIN_BUTTON, BUTTON_PULLUP_INTERNAL);
+//Button bReset = Button(PIN_BUTTON, BUTTON_PULLUP_INTERNAL);
 
 // object that will handle the actual http server functions
 ESP8266WebServer *server = NULL;
@@ -56,10 +49,10 @@ static String token = "opendoor"; //String(config.getString("devicekey"));
 
 // vars to store a utc timestamp for timekeeping
 // (or millis() for operations that take time)
-static ulong last_utc = 0;			// last synced UTC time
-static ulong last_ntp = 0;			// last millis() we synced time with ntp
-static ulong last_status_check = 0;	// last millis() we checked the door status
-static ulong last_status_change = 0;// last utc the status changed
+static ulong last_sync_utc = 0;				// last synced UTC time
+static ulong last_sync_millis = 0;			// last millis() we synced time with ntp
+static ulong last_status_change_utc = 0;	// last utc the status changed
+static ulong last_status_check_millis = 0;	// last millis() we checked the door status
 
 // define a few helper functions below for interacting with the 
 // server object, like sending html or json response headers
@@ -102,7 +95,7 @@ char dec2hexchar(byte dec) {
 }
 
 // check if a string is actually a number in disguise
-bool isInt(String str)
+bool is_int(String str)
 {
 	if (!(str.charAt(0) == '+' || str.charAt(0) == '-' || isDigit(str.charAt(0)))) {
 		return false;
@@ -134,30 +127,12 @@ String get_mac() {
 	return hex;
 }
 
-// Generate a default SSID name, used both in AP mode
-// and for MDNS registration in STA mode.
-String get_ap_ssid() {
-	static String ap_ssid = "";
-	if (!ap_ssid.length()) {
-
-		byte mac[6];
-		WiFi.macAddress(mac);
-		ap_ssid = "OG-";
-
-		for (byte i = 3; i<6; i++) {
-			ap_ssid += dec2hexchar((mac[i] >> 4) & 0x0F);
-			ap_ssid += dec2hexchar(mac[i] & 0x0F);
-		}
-
-	}
-	return ap_ssid;
-}
 
 // get the ip as an array of bytes and return as a dotted decimal string
 String get_ap_ip() {
 	static String ip = "";
 	IPAddress _ip = WiFi.localIP();
-	ip = _ip[0];
+	ip += _ip[0];
 	ip += ".";
 	ip += _ip[1];
 	ip += ".";
@@ -187,8 +162,8 @@ bool is_authenticated() {
 // Return the current UTC time based on the millis() since the last sync
 // The exact current time is derived as a unix timestamp by taking...
 // [the last timestamp we synced] + [the time since the last sync]
-uint curr_utc_time() {
-	return last_utc + (millis() - last_ntp) / 1000;
+uint get_utc_time() {
+	return last_sync_utc + (millis() - last_sync_millis) / 1000;
 }
 
 void on_get_index()
@@ -200,8 +175,7 @@ void on_get_index()
 
 void on_get_portal() {
 	oLog.verbose("GET /portal ...");
-	String html = FPSTR(assets_portal);
-	server_send_html(html);
+	server_send_html(assets_portal);
 	oLog.verbose("ok!\r\n");
 }
 
@@ -212,7 +186,7 @@ void on_get_controller() {
 
 	root["read_value"] = (int)read_value;
 	root["door_status"] = (int)door_status;
-	root["last_status_change"] = (int)last_status_change;
+	root["last_status_change"] = (int)last_status_change_utc;
 	root["read_count"] = (int)read_count;
 	root["firmware_version"] = (int)FIRMWARE_VERSION;
 	root["name"] = config.getString("name");
@@ -233,13 +207,14 @@ void on_get_logs() {
 	JsonObject& root = jsonBuffer.createObject();
 
 	root["name"] = config.getString("name");
-	root["time"] = (int)curr_utc_time();
+	root["time"] = (int)get_utc_time();
 
 	JsonArray& logs = root.createNestedArray("logs");
 
 	LogStruct l;
 	uint curr;
 	if (!og.read_log_start()) return;
+
 	for (uint i = 0; i<og.current_log_id; i++) {
 		if (!og.read_log(l, i)) continue;
 		//if(!l.tstamp) continue;
@@ -320,14 +295,14 @@ void on_get_status() {
 
 	status["read_value"] = (int)read_value;
 	status["door_status"] = (int)door_status;
-	status["last_status_change"] = (int)last_status_change;
+	status["last_status_change"] = (int)last_status_change_utc;
 	status["read_count"] = read_count;
 	status["firmware_version"] = (int)FIRMWARE_VERSION;
 	status["name"] = config.getString("name");
 	status["mac"] = get_mac();
 	status["heap"] = (int)ESP.getFreeHeap();
-	status["chipId"] = (int)ESP.getChipId();
-	status["curr_utc_time"] = (int)curr_utc_time();
+	status["chip_id"] = (int)ESP.getChipId();
+	status["utc_time"] = (int)get_utc_time();
 
 	String retJson;
 	root.printTo(retJson);
@@ -369,46 +344,6 @@ void on_post_auth() {
 	oLog.verbose("ok!\r\n");
 }
 
-void process_ui()
-{
-	// process button
-	static ulong button_down_time = 0;
-	if (og.get_button() == LOW) {
-		if (!button_down_time) {
-			button_down_time = millis();
-		}
-		else {
-			if (millis() > button_down_time + BUTTON_RESET_TIMEOUT) {
-				led_blink_ms = 0;
-				og.set_led(HIGH);
-			}
-		}
-	}
-	else {
-		if (button_down_time > 0) {
-			ulong curr = millis();
-			if (curr > button_down_time + BUTTON_RESET_TIMEOUT) {
-				//og.state = OG_STATE_RESET;
-			}
-			else if (curr > button_down_time + 50) {
-				og.click_relay();
-			}
-			button_down_time = 0;
-		}
-	}
-
-	// process led
-	static ulong led_toggle_timeout = 0;
-	if (led_blink_ms) {
-		if (millis() > led_toggle_timeout) {
-			// toggle led
-			og.set_led(1 - og.get_led());
-			led_toggle_timeout = millis() + led_blink_ms;
-		}
-	}
-
-}
-
 byte check_door_status_hist() {
 	// perform pattern matching of door status histogram
 	// and return the corresponding results
@@ -426,7 +361,7 @@ byte check_door_status_hist() {
 }
 
 
-void on_sta_upload_fin() {
+void on_post_update_complete() {
 	// finish update and check error
 	if (!Update.end(true) || Update.hasError()) {
 		server_send_result(HTML_UPLOAD_FAILED);
@@ -441,7 +376,7 @@ void on_sta_upload_fin() {
  * Handles the upload of a file from the configuration form, specifically
  * used to do firmware updates through the web interface.
  */
-void on_sta_upload() {
+void on_post_update_start() {
 	HTTPUpload& upload = server->upload();
 	oLog.info("Receiving file upload. Filename=%s...", upload.filename.c_str());
 
@@ -475,13 +410,13 @@ void on_sta_upload() {
 void time_keeping() {
 	// if we haven't synced yet, or if we've gone too long without syncing,
 	// lets synchronise time with the NTP server that we already set up.
-	if (!last_utc || millis() > last_ntp + (TIME_SYNC_TIMEOUT * 1000)) {
+	if (!last_sync_utc || millis() > last_sync_millis + (TIME_SYNC_TIMEOUT * 1000)) {
 		ulong gt = time(nullptr);
 
 		if (gt) {
-			last_utc = gt;
-			last_ntp = millis();
-			int drift = gt - curr_utc_time();
+			last_sync_utc = gt;
+			last_sync_millis = millis();
+			int drift = gt - get_utc_time();
 			oLog.info("Synchronized time using NTP. Current Unix Time=%i, Drift=%is.\r\n", gt, drift);
 		}
 
@@ -492,10 +427,10 @@ void time_keeping() {
 void check_status() {
 
 	// only process if we've exceeded the read interval
-	if (millis() > last_status_check + (config.getInt("read_interval") * 1000)) {
+	if (millis() > last_status_check_millis + (config.getInt("read_interval") * 1000)) {
 		oLog.verbose("Reading door status. ");
 
-		last_status_check = millis();
+		last_status_check_millis = millis();
 
 		switch (config.getInt("sensor_type")) {
 
@@ -534,19 +469,19 @@ void check_status() {
 
 		if (event == DOOR_STATUS_JUST_OPENED || event == DOOR_STATUS_JUST_CLOSED) {
 			oLog.info("door status changed! door_status=%i...", door_status);
-			last_status_change = curr_utc_time();
+			last_status_change_utc = get_utc_time();
 
 			// create a logstruct with this new status
 			// info and write it to the oLog file
 			LogStruct l;
-			l.tstamp = last_status_change;
+			l.tstamp = last_status_change_utc;
 			l.status = door_status;
 			l.value = read_value;
 			og.write_log(l);
 
 			// module : email alerts
 			if (config.getInt("smtp_notify_status") == 1) {
-				mail.send(config.getString("smtp_from"), config.getString("smtp_to"), "Door status changed!", String(last_status_change));
+				mail.send(config.getString("smtp_from"), config.getString("smtp_to"), "Door status changed!", String(last_status_change_utc));
 			}
 		}
 
@@ -558,25 +493,27 @@ void check_status() {
 * Called when the physical button is pressed. When pressed we
 * will reset the entire device to factory settings and reboot
 **/
-void onResetPress(Button& b) {
+/*void on_hold_reset(Button& b) {
 	oLog.error("Reset button depressed, resetting to factory defaults...");
 
 	// clear the wifi configuration, delegated to the wifimanager. We must initialize a
 	// new wifimanager object here as the original was already garbage collected
 	oLog.error("reset wifi...");
-	WiFiManager wifiManager;
-	wifiManager.resetSettings();
+	//WiFiManager wifiManager;
+	//wifiManager.resetSettings();
 
 	// clear the FS which includes the config and oLog files
 	oLog.error("reset config and logs...");
-	SPIFFS.format();
+	//SPIFFS.format();
 
 	oLog.error("ok!\r\n");
 
 	// restart the ESP to establish a fresh state
 	oLog.info("ESP was reset and will now be rebooted...\r\n");
-	ESP.reset();
+	//ESP.reset();
 }
+*/
+
 
 void setup()
 {
@@ -590,16 +527,30 @@ void setup()
 	configTime(0, 0, "pool.ntp.org", "time.nist.org", NULL);
 	oLog.verbose("ok!\r\n");
 
-	// setup the internal factory reset button
-	bReset.pressHandler(onResetPress);
+	// setup the internal factory reset button if held for 1 second
+	//bReset.holdHandler(on_hold_reset, 1000);
 
 	// DEPRECATE: OpenGarage object
 	og.begin();
+
+	//SPIFFS.format();
 
 	// initialize configuration object with the default config values then 
 	// load the configuration from a JSON file on top for custom values
 	config.setDefaultVector(defaultConfig);
 	config.loadJsonFile(CONFIG_FNAME);
+
+	// setup DHCP hostname, hopefully this works and will allow us to
+	// access the device by its device name on a windows network. have 
+	// to convert to a char array because our declaration is weird
+	String hostname = config.getString("name");
+	oLog.verbose("Setting DHCP Hostname. Hostname=%s...", hostname.c_str());
+	if (WiFi.hostname(hostname)) {
+		oLog.verbose("ok!\r\n");
+	}
+	else {
+		oLog.verbose("failed...nok!\r\n");
+	}
 
 	// initialize a WiFiManager to establish an existing WiFi connection
 	// or offer a configuration portal to the user to connect to a new
@@ -612,6 +563,7 @@ void setup()
 	//sets timeout until configuration portal gets turned off
 	//useful to make it all retry or go to sleep (seconds)
 	wifiManager.setTimeout(WIFI_PORTAL_TIMEOUT);
+	wifiManager.setConfigPortalTimeout(WIFI_PORTAL_TIMEOUT);
 
 	// fetches previously stored ssid and password and tries to connect
 	// if it cannot connect it starts an access point where the user
@@ -625,6 +577,15 @@ void setup()
 		delay(500000);
 	}
 	oLog.info("ok!\r\n");
+
+	// register with mdns, wont need this for a while
+	oLog.info("Registering with MDNS. Hostname=%s", config.getString("name").c_str());
+	if (MDNS.begin(config.getString("name").c_str())) {
+		oLog.info("ok!\r\n");
+	}
+	else {
+		oLog.info("MDNS registration failed... nok!\r\n");
+	}
 
 	// create a server to respond to client HTTP requests on the 
 	// designated port. this will be used for the JSON API as
@@ -642,7 +603,7 @@ void setup()
 	server->on("/", on_get_index);
 	server->on("/portal", on_get_portal);
 	server->on("/auth", HTTP_POST, on_post_auth);
-	server->on("/update", HTTP_POST, on_sta_upload_fin, on_sta_upload);
+	server->on("/update", HTTP_POST, on_post_update_complete, on_post_update_start);
 	server->on("/json/logs", HTTP_GET, on_get_logs);
 	server->on("/json/status", HTTP_GET, on_get_status);
 	server->on("/json/controller", on_post_controller);
@@ -677,7 +638,7 @@ void setup()
 
 // The main processing loop for the application. While the
 // device is powered this function will loop infinitely
-// and allow us to handle processing and UI function 
+// and allow us to handle processing and UI function
 void loop() {
 	// allow the webserver to handle any client requests
 	server->handleClient();
@@ -689,10 +650,5 @@ void loop() {
 	check_status();
 
 	// handle button presses, lights, and other physical UI
-	process_ui();
-	bReset.process();
+	//bReset.process();
 }
-
-//void saveConfigCallback() {
-//  Serial.println("Should save config");
-//}
