@@ -9,19 +9,30 @@ const char assets_portal[] PROGMEM = R"=====(﻿<!DOCTYPE html>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.address/1.6/jquery.address.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.2/semantic.min.js"></script>
+<style type="text/css">
+body {
+overflow-y: scroll;
+margin:auto 1em;
+background-color: #ccc;
+}
+#ui-container{ background-color: #efefef;}
+/* override segment background color so that our container color shows through */
+.ui.segment {background-color: transparent;}
+</style>
 </head>
-<body style="overflow-y: scroll;margin-top:1em;margin-bottom:1em;">
+<body>
 <!-- CONNECT TO DEVICE MODAL -->
 <div id="login-modal" class="ui small modal">
-<h2 class="ui header">
-<i class="compress icon"></i>
+<div class="ui header">
 <div class="content">
-MyGarage
+<h2>
+<i class="compress icon"></i> MyGarage
+</h2>
 <div class="sub header">
 Connect to a device
 </div>
 </div>
-</h2>
+</div>
 <div class="content">
 <form id="connect_form" action="/auth" method="POST" class="ui form">
 <div class="ui form">
@@ -40,21 +51,17 @@ Connect to a device
 </form>
 </div>
 </div>
-<div class="ui container">
+<div id="ui-container" class="ui container">
 <!--  MAIN MENU -->
-<div class="ui stackable top attached stackable pointing large inverted menu">
-<a href="/" class="header item">
+<div class="ui top attached stackable pointing large inverted menu">
+<a href="/" class="header item active" data-tab="status">
 <i class="home icon"></i> MyGarage
-</a>
-<a id="tab-status" class="item active" data-tab="status">
-<i class="heartbeat icon"></i> Status
 </a>
 <a id="tab-configuration" class="item" data-tab="configuration">
 <i class="wrench icon"></i> Configuration
 </a>
 <a id="tab-device" class="item right">
-<i class="wifi icon"></i>
-Connected to&nbsp;<b id="lbl_name">localhost</b>
+<i class="wifi icon"></i> Connected to&nbsp;<b id="lbl_name">localhost</b>
 </a>
 </div>
 <!-- MAIN PAGE -->
@@ -79,49 +86,21 @@ Connected to&nbsp;<b id="lbl_name">localhost</b>
 </div>
 <!-- CONFIGURATION PAGE -->
 <div class="ui attached tab segment" data-tab="configuration">
-<!-- CONFIGURATION MENU -->
-<div class="ui top attached pointing inverted stackable menu">
-<a class="item active" data-tab="basic-options">
-<i class="setting icon"></i> Device
-</a>
-<a class="item" data-tab="sensor-settings">
-<i class="unhide icon"></i> Sensor
-</a>
-<a class="item" data-tab="email-notifications">
-<i class="mail icon"></i> Notifications
-</a>
-<a class="item" id="update-button">
-<i class="download icon"></i> Update
-</a>
-</div>
-<!-- CONFIGURATION FORM (visible) -->
+<!-- CONFIGURATION FORM -->
 <form id="config_form" name="config_form" action="/json/config" method="POST" class="ui form">
-<!-- DEVICE SETTINGS -->
-<div class="ui attached active tab segment" data-tab="basic-options">
+                
+<!-- DEVICE SETTINGS TAB -->
 <h3 class="ui dividing header">Basic Settings</h3>
 <div class="fields">
 <div class="six wide field">
-<label for="name">Device Name</label>
+<label for="name">Device Name (hostname)</label>
 <input type="text" size=20 maxlength=32 id="name" name="name" class="name" value="">
 </div>
-</div>
-<h3 class="ui dividing header">Device URL</h3>
-<div class="inline fields">
 <div class="three wide field">
-<label for="ip">http://</label>
-<input type="text" size=20 maxlength=32 id="ip" name="ip" disabled="disabled" value="192.168.1.83">
-</div>
-<div class="three wide field">
-<label for="http_port">:</label>
+<label for="http_port">Http Port</label>
 <input type="text" size=5 maxlength=5 id="http_port" name="http_port" value="">
-</div>
 </div>
-<h4 class="ui dividing header">
-<div class="ui checkbox">
-<label for="change_devicekey">Change Device Key</label>
-<input type="checkbox" id="change_devicekey" name="change_devicekey">
 </div>
-</h4>
 <div class="fields">
 <div class="three wide field">
 <label for="new_devicekey">New Device Key</label>
@@ -132,9 +111,7 @@ Connected to&nbsp;<b id="lbl_name">localhost</b>
 <input type="password" size="24" maxlength="32" id="confirm_devicekey" name="confirm_devicekey" disabled>
 </div>
 </div>
-</div>
 <!-- SENSOR SETTINGS -->
-<div class="ui attached tab segment" data-tab="sensor-settings">
 <h3 class="ui dividing header">Sensor Settings</h3>
 <div class="fields">
 <div class="four wide field">
@@ -154,9 +131,7 @@ Connected to&nbsp;<b id="lbl_name">localhost</b>
 <input type="text" size=3 maxlength=3 id="read_interval" name="read_interval" value="">
 </div>
 </div>
-</div>
 <!-- NOTIFICATION SETTINGS -->
-<div class="ui attached tab segment" data-tab="email-notifications">
 <h3 class="ui dividing header">Notification Settings</h3>
 <div class="fields">
 <div class="six wide field">
@@ -177,7 +152,7 @@ Connected to&nbsp;<b id="lbl_name">localhost</b>
 <label>Device Boots or Reboots</label>
 </div>
 </div>
-<h4 class="ui dividing header">SMTP Server Settings</h4>
+<h3 class="ui dividing header">SMTP Server Settings</h3>
 <div class="fields">
 <div class="three wide field">
 <label for="smtp_host">Hostname or IP</label>
@@ -204,16 +179,10 @@ Connected to&nbsp;<b id="lbl_name">localhost</b>
 <input type="text" maxlength="32" id="smtp_from" name="smtp_from" />
 </div>
 </div>
-</div>
 <!-- SUBMIT BUTTON -->
 <div class="ui bottom attached large blue button" id="config_submit">
 <i class="save icon"></i> Save
 </div>
-</form>
-<!-- FIRMWARE UPDATE FORM (hidden) -->
-<form id="update_form" name="update_form" action="/update" method="POST" style="display:none;" enctype="multipart/form-data">
-<input type="file" id="update_file" name="file" accept=".bin" />
-<input type="submit" value="Submit Firmware File..." />
 </form>
 </div>
 <!-- FOOTER -->
@@ -226,7 +195,7 @@ MyGarage is an <a href="https://github.com/bepursuant/MyGarage">Open Source Proj
 $(document).ready(function () {
 var deviceIP = "localhost";
 var deviceKey = "";
-// check auth status
+// show login dialog if no token cookie has been obtained
 if (!getCookie("OG_TOKEN")) {
 $("#login-modal").modal("show");//"setting","closable",false).modal("show");
 }
@@ -262,13 +231,6 @@ $("#config_form").submit();
 /*$("#auth_submit").click(function () {
 $("#connect_form").submit()
 });*/
-// enable/disable the change device key textboxes when 
-// the "change key" checkbox is changed
-/*$("#change_devicekey").on("change", function (e) {
-thisStatus = $(this).is(":checked");
-$("#new_devicekey").prop("disabled", !thisStatus)
-$("#confirm_devicekey").prop("disabled", !thisStatus);
-});*/
 // intercept auth form submission
 $("#connect_form").on("submit", function () {
 // send xhr request
@@ -292,14 +254,12 @@ return false;
 // intercept the config form sumission
 $("#config_form").on("submit", function (e) {
 if (confirm("Submit changes?")) {
-var formData = new FormData($(this)[0]);
 // send xhr request
 $.ajax({
 url: $(this).attr("action"),
 type: $(this).attr("method"),
-data: formData,
+data: $(this).serialize(),
 async: false,
-processData: false,
 success: function (postConfig) {
 if (postConfig.result != 1) {
 if (postConfig.result == 2) {

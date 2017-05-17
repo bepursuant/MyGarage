@@ -569,8 +569,8 @@ void setup()
 	// if it cannot connect it starts an access point where the user
 	// can setup the WiFi AP then goes into blocking loop waiting
 	oLog.info("Auto Connecting to WiFi Network...\r\n");
-	if (!wifiManager.autoConnect()) {
-		oLog.info("failed to connect to AP, restarting in 30 seconds...nok!\r\n");
+	if (!wifiManager.autoConnect(config.getString("name").c_str(), NULL)) {
+		oLog.info("failed to connect to AP, restarting in 30 ...nok!\r\n");
 		delay(300000);
 		//reset and try again, or maybe put it to deep sleep
 		ESP.reset();
