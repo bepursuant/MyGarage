@@ -12,7 +12,6 @@
     <style type="text/css">
         body {
             overflow-y: scroll;
-            margin:auto 1em;
             background-color: #ccc;
         }
         #ui-container{ background-color: #efefef;}
@@ -27,11 +26,8 @@
         <div class="ui header">
             <div class="content">
                 <h2>
-                    <i class="compress icon"></i> MyGarage
+                    <i class="wifi icon"></i> Connect to a device
                 </h2>
-                <div class="sub header">
-                    Connect to a device
-                </div>
             </div>
         </div>
         <div class="content">
@@ -56,15 +52,15 @@
     <div id="ui-container" class="ui container">
 
         <!--  MAIN MENU -->
-        <div class="ui top attached stackable pointing large inverted menu">
-            <a href="/" class="header item active" data-tab="status">
-                <i class="home icon"></i> MyGarage
+        <div class="ui top attached pointing large inverted menu">
+            <a id="tab-status" class="item active" data-tab="status">
+                <i class="heartbeat icon"></i> Status
             </a>
             <a id="tab-configuration" class="item" data-tab="configuration">
-                <i class="wrench icon"></i> Configuration
+                <i class="wrench icon"></i> Setup
             </a>
             <a id="tab-device" class="item right">
-                <i class="wifi icon"></i> Connected to&nbsp;<b id="lbl_name">localhost</b>
+                <i class="wifi icon"></i> Connected to&nbsp;<b class="lbl_name">localhost</b>
             </a>
         </div>
 
@@ -75,9 +71,9 @@
             <div id="current-status" class="ui items">
                 <div class="ui item">
                     <div class="content">
-                        <div class="header name">MyGarage</div>
+                        <div class="header name"><b class="lbl_name">localhost</b></div>
                         <div class="meta">
-                            <b id="lbl_status"></b> at <b id="lbl_time"></b>
+                            <b class="lbl_status"></b> at <b class="lbl_time"></b>
                         </div>
                         <div class="description">
                             <div id="door-button" class="ui massive button primary fluid">Toggle</div>
@@ -192,8 +188,8 @@
                     </div>
 
                 <!-- SUBMIT BUTTON -->
-                <div class="ui bottom attached large blue button" id="config_submit">
-                    <i class="save icon"></i> Save
+                <div class="ui large blue button" id="config_submit">
+                    <i class="save icon"></i> Save Setup
                 </div>
 
             </form>
@@ -338,13 +334,13 @@
             $.getJSON("/json/status", function (jsonStatus) {
                 var status = jsonStatus.status;
 
-                $("#lbl_status").text(status.door_status == 1 ? "OPEN" : "CLOSED");
+                $(".lbl_status").text(status.door_status == 1 ? "OPEN" : "CLOSED");
                 $("#door-button").text(status.door_status == 1 ? "Close Door" : "Open Door");
                 $("#current-status i").removeClass("lock unlock").addClass(status.door_status == 1 ? "unlock" : "lock");
 
                 // convert timestamp into a Date object, then convert to human readable string
                 update_time = new Date(1000 * status.last_status_change);
-                $("#lbl_time").text(update_time.toLocaleString());
+                $(".lbl_time").text(update_time.toLocaleString());
             });
 
             // refresh the logs
@@ -382,7 +378,7 @@
                 $("#read_interval").val(config.read_interval);
                 $("#http_port").val(config.http_port);
                 $("#name").val(config.name);
-                $("#lbl_name").text(config.name);
+                $(".lbl_name").text(config.name);
                 $("#auth").val(config.auth);
                 $("#smtp_notify_boot").prop("checked", config.smtp_notify_boot == "on" ? 1 : 0);
                 $("#smtp_notify_status").prop("checked", config.smtp_notify_status == "on" ? 1 : 0);

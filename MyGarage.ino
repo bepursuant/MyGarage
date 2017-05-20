@@ -480,8 +480,8 @@ void check_status() {
 			og.write_log(l);
 
 			// module : email alerts
-			if (config.getInt("smtp_notify_status") == 1) {
-				mail.send(config.getString("smtp_from"), config.getString("smtp_to"), "Door status changed!", String(last_status_change_utc));
+			if (config.getInt("smtp_notify_status") == 1 || config.getString("smtp_notify_status") == "on") {
+				mail.send(config.getString("smtp_from"), config.getString("smtp_to"), "Door status changed!", String(last_status_change_utc) + String(door_status));
 			}
 		}
 
