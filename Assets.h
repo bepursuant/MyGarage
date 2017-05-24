@@ -54,7 +54,7 @@ background-color: #ccc;
 <i class="heartbeat icon"></i> Status
 </a>
 <a id="tab-configuration" class="item" data-tab="configuration">
-<i class="wrench icon"></i> Setup
+<i class="wrench icon"></i> Settings
 </a>
 <a id="tab-device" class="item right">
 <i class="wifi icon"></i> Connected to&nbsp;<b class="lbl_name">localhost</b>
@@ -177,8 +177,19 @@ background-color: #ccc;
 </div>
 <!-- SUBMIT BUTTON -->
 <div class="ui large blue button" id="config_submit">
-<i class="save icon"></i> Save Setup
+<i class="save icon"></i> Save Settings
 </div>
+</form>
+
+<form method="POST" action="/update" enctype="multipart/form-data" class="ui form">
+<h3 class="ui dividing header">Firmware Update</h3>
+<div class="field">
+<label for="file">Firmware File (.bin)</label>
+<input type="file" id="update" name="update" />
+</div>
+<div class="field">
+<input type="submit" value="Update Firmware" class="ui large green button"/>
+</div>
 </form>
 </div>
 <!-- FOOTER -->
@@ -189,18 +200,19 @@ MyGarage is an <a href="https://github.com/bepursuant/MyGarage">Open Source Proj
 <!-- SPA SCRIPTS -->
 <script>
 $(document).ready(function () {
+// ui behaviors
+$(".checkbox").checkbox();
+$(".ui.menu a.item").tab();
+// scope variables
 var deviceIP = "localhost";
 var deviceKey = "";
 // show login dialog if no token cookie has been obtained
 if (!getCookie("OG_TOKEN")) {
 $("#login-modal").modal("show");//"setting","closable",false).modal("show");
 }
-// setup checkbox behaviors
-$(".checkbox").checkbox();
-// setup tab behaviors
-$(".ui.menu a.item").tab();
 // load initial values
 refresh_status();
+refresh_configuration();
 // handle a door-button click event
 $("#door-button").click(function (e) {
 $("#door-button").addClass("loading");

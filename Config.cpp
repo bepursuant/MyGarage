@@ -27,6 +27,10 @@ int Config::getInt(String key) {
 	return this->get(key).ival;
 }
 
+const char* Config::getChar(String key) {
+	return this->get(key).sval.c_str();
+}
+
 // Present a way to loop through the array of keyvalue structs to locate one
 // based on its key and return it so that its value can be used elsewhere
 ConfigStruct Config::get(String key) {

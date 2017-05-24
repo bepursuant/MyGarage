@@ -32,6 +32,7 @@ OpenGarage og;
 
 // object that will handle the actual http server functions
 ESP8266WebServer *server = NULL;
+ESP8266HTTPUpdateServer updater;
 
 static byte read_count = 0;
 static uint read_value = 0;
@@ -519,7 +520,6 @@ void setup()
 {
 	// initialize logging and begin output
 	oLog.init(LOGLEVEL, 115200);
-
 	oLog.info("Initializing MyGarage...\r\n");
 
 	// initialize local clock and time servers
@@ -543,9 +543,10 @@ void setup()
 	// setup DHCP hostname, hopefully this works and will allow us to
 	// access the device by its device name on a windows network. have 
 	// to convert to a char array because our declaration is weird
-	String hostname = config.getString("name");
-	oLog.verbose("Setting DHCP Hostname. Hostname=%s...", hostname.c_str());
-	if (WiFi.hostname(hostname)) {
+	const char* cHost = config.getChar("name");
+	String sHost = config.getString("name");
+	oLog.verbose("Setting DHCP Hostname. Hostname=%s...", cHost);
+	if (WiFi.hostname(cHost)) {
 		oLog.verbose("ok!\r\n");
 	}
 	else {
@@ -569,7 +570,7 @@ void setup()
 	// if it cannot connect it starts an access point where the user
 	// can setup the WiFi AP then goes into blocking loop waiting
 	oLog.info("Auto Connecting to WiFi Network...\r\n");
-	if (!wifiManager.autoConnect(config.getString("name").c_str(), NULL)) {
+	if (!wifiManager.autoConnect(cHost, NULL)) {
 		oLog.info("failed to connect to AP, restarting in 30 ...nok!\r\n");
 		delay(300000);
 		//reset and try again, or maybe put it to deep sleep
@@ -579,8 +580,9 @@ void setup()
 	oLog.info("ok!\r\n");
 
 	// register with mdns, wont need this for a while
-	oLog.info("Registering with MDNS. Hostname=%s", config.getString("name").c_str());
-	if (MDNS.begin(config.getString("name").c_str())) {
+	oLog.info("Registering with MDNS. Hostname=%s...", cHost);
+	if (MDNS.begin(cHost)) {
+		MDNS.addService("http", "tcp", 80);
 		oLog.info("ok!\r\n");
 	}
 	else {
@@ -600,16 +602,20 @@ void setup()
 	oLog.info("Starting HTTP API and Application Server. Port=%i...", port);
 
 	server = new ESP8266WebServer(port);
+	updater = new ESP8266HTTPUpdateServer();
+
 	server->on("/", on_get_index);
 	server->on("/portal", on_get_portal);
 	server->on("/auth", HTTP_POST, on_post_auth);
-	server->on("/update", HTTP_POST, on_post_update_complete, on_post_update_start);
+	//server->on("/update", HTTP_POST, on_post_update_complete, on_post_update_start);
 	server->on("/json/logs", HTTP_GET, on_get_logs);
 	server->on("/json/status", HTTP_GET, on_get_status);
 	server->on("/json/controller", on_post_controller);
 	server->on("/json/controller", HTTP_GET, on_get_controller);
 	server->on("/json/config", HTTP_GET, on_get_config);
 	server->on("/json/config", HTTP_POST, on_post_config);
+
+	updater.setup(server);
 	server->begin();
 
 	oLog.info("ok!\r\n");
@@ -640,8 +646,11 @@ void setup()
 // device is powered this function will loop infinitely
 // and allow us to handle processing and UI function
 void loop() {
-	// allow the webserver to handle any client requests
-	server->handleClient();
+	// handle button presses, lights, and other physical UI
+	//bReset.process();
+
+	// allow for OTA
+	//ArduinoOTA.handle();
 
 	// maintain the internal clock and periodically sync via NTP
 	time_keeping();
@@ -649,6 +658,6 @@ void loop() {
 	// check the status sensors and process accordingly
 	check_status();
 
-	// handle button presses, lights, and other physical UI
-	//bReset.process();
+	// allow the webserver to handle any client requests
+	server->handleClient();
 }

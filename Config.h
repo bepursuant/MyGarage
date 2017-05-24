@@ -42,6 +42,7 @@ public:
 
 	int getInt(String);
 	String getString(String);
+	const char* getChar(String);
 
 	bool set(String, String);
 	bool set(String, int);
