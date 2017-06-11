@@ -132,7 +132,7 @@ background-color: #ccc;
 <div class="fields">
 <div class="six wide field">
 <label for="smtp_to">Send Email Notification To</label>
-<input type="text" maxlength="32" id="smtp_to" name="smtp_to" />
+<input type="text" maxlength="255" id="smtp_to" name="smtp_to" />
 </div>
 </div>
 <div class="grouped fields">
@@ -152,7 +152,7 @@ background-color: #ccc;
 <div class="fields">
 <div class="three wide field">
 <label for="smtp_host">Hostname or IP</label>
-<input type="text" maxlength="32" id="smtp_host" name="smtp_host" />
+<input type="text" maxlength="255" id="smtp_host" name="smtp_host" />
 </div>
 <div class="three wide field">
 <label for="smtp_port">Port</label>
@@ -162,17 +162,17 @@ background-color: #ccc;
 <div class="fields">
 <div class="three wide field">
 <label for="smtp_user">Username</label>
-<input type="text" maxlength="32" id="smtp_user" name="smtp_user" />
+<input type="text" maxlength="255" id="smtp_user" name="smtp_user" />
 </div>
 <div class="three wide field">
 <label for="smtp_pass">Password</label>
-<input type="password" maxlength="32" id="smtp_pass" name="smtp_pass" />
+<input type="password" maxlength="255" id="smtp_pass" name="smtp_pass" />
 </div>
 </div>
 <div class="fields">
 <div class="six wide field">
 <label for="smtp_from">Send Emails From</label>
-<input type="text" maxlength="32" id="smtp_from" name="smtp_from" />
+<input type="text" maxlength="255" id="smtp_from" name="smtp_from" />
 </div>
 </div>
 <!-- SUBMIT BUTTON -->
