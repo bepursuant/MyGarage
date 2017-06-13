@@ -33,28 +33,6 @@ uint OpenGarage::current_log_id;
 static const char* log_fname = LOG_FNAME;
 
 void OpenGarage::begin() {
-	oLog.info("Configuring GPIO...");
-
-	digitalWrite(PIN_RELAY, LOW);   // relay
-	pinMode(PIN_RELAY, OUTPUT);
-
-	digitalWrite(PIN_LED, LOW);     // status LED
-	pinMode(PIN_LED, OUTPUT);
-
-	digitalWrite(PIN_TRIG, HIGH);   // trigger
-	pinMode(PIN_TRIG, OUTPUT);
-
-	pinMode(PIN_ECHO, INPUT);       // echo
-	pinMode(PIN_CLOSED, INPUT_PULLUP); //closed sensor
-	oLog.info("ok!\r\n");
-
-	oLog.info("Mounting SPIFFS...");
-	if (!SPIFFS.begin()) {
-		oLog.info("failed to mount...nok!\r\n");
-	}
-	else {
-		oLog.info("ok!\r\n");
-	}
 
 }
 

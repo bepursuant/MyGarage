@@ -86,6 +86,7 @@
     <ClInclude Include="Assets.h">
       <FileType>CppCode</FileType>
     </ClInclude>
+    <ClInclude Include="Button.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="Log.h" />
     <ClInclude Include="MyGarage.h" />
@@ -94,6 +95,7 @@
     <ClInclude Include="__vm\.MyGarage.vsarduino.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Button.cpp" />
     <ClCompile Include="CompileAssets.cpp" />
     <ClCompile Include="Config.cpp" />
     <ClCompile Include="Log.cpp" />

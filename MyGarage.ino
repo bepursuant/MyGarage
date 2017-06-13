@@ -4,14 +4,12 @@
 #include "Config.h"		// Pursuant library to store/retrieve config
 #include "Mail.h"		// Pursuant library for sending email messages
 #include "OpenGarage.h"	// DEPRECATE for controlling the garage door
+#include "Button.h"		// library for reacting to button presses
 
 vector<ConfigStruct> defaultConfig = {
 	{ "name", DEFAULT_NAME },
 	{ "devicekey", DEFAULT_DEVICEKEY },
 	{ "http_port", DEFAULT_HTTP_PORT },
-	{ "dth", DEFAULT_DTH },
-	{ "read_interval", DEFAULT_READ_INTERVAL },
-	{ "sensor_type", SENSORTYPE_ULTRASONIC_CEILING },
 	{ "smtp_notify_boot", DEFAULT_SMTP_NOTIFY_BOOT },
 	{ "smtp_notify_status", DEFAULT_SMTP_NOTIFY_STATUS },
 	{ "smtp_host", DEFAULT_SMTP_HOST },
@@ -20,7 +18,6 @@ vector<ConfigStruct> defaultConfig = {
 	{ "smtp_pass", DEFAULT_SMTP_PASS },
 	{ "smtp_from", DEFAULT_SMTP_FROM },
 	{ "smtp_to", DEFAULT_SMTP_TO },
-	{ "autoclose", DEFAULT_AUTOCLOSE }
 };
 Config config;
 Log oLog;
@@ -34,15 +31,10 @@ OpenGarage og;
 ESP8266WebServer *server = NULL;
 ESP8266HTTPUpdateServer updater;
 
-static byte read_count = 0;
-static uint read_value = 0;
-static byte door_status = 0;
+// setup sensor as a button
+Button door_sensor = Button(PIN_CLOSED, INPUT_PULLUP);
+static byte door_status = DOOR_STATUS_UNKNOWN;
 
-static uint led_blink_ms = LED_FAST_BLINK;
-static ulong restart_timeout = 0;
-
-// this is one byte (8 bits) storing the door status histogram
-static byte door_status_hist = 0;
 
 // to be implemented - just a string for now, will need to be hashed later
 // basically just so we don't store the plaintext devicekey in a cookie
@@ -53,7 +45,7 @@ static String token = "opendoor"; //String(config.getString("devicekey"));
 static ulong last_sync_utc = 0;				// last synced UTC time
 static ulong last_sync_millis = 0;			// last millis() we synced time with ntp
 static ulong last_status_change_utc = 0;	// last utc the status changed
-static ulong last_status_check_millis = 0;	// last millis() we checked the door status
+
 
 // define a few helper functions below for interacting with the 
 // server object, like sending html or json response headers
@@ -185,10 +177,8 @@ void on_get_controller() {
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 
-	root["read_value"] = (int)read_value;
 	root["door_status"] = (int)door_status;
 	root["last_status_change"] = (int)last_status_change_utc;
-	root["read_count"] = (int)read_count;
 	root["firmware_version"] = (int)FIRMWARE_VERSION;
 	root["name"] = config.getString("name");
 	root["sensor_type"] = config.getInt("sensor_type");
@@ -245,8 +235,6 @@ void on_get_config() {
 	conf["name"] = config.getString("name");
 	conf["devicekey"] = config.getString("devicekey");
 	conf["http_port"] = config.getInt("http_port");
-	conf["dth"] = config.getInt("dth");
-	conf["read_interval"] = config.getInt("read_interval");
 	conf["sensor_type"] = config.getInt("sensor_type");
 	conf["smtp_notify_boot"] = config.getString("smtp_notify_boot");
 	conf["smtp_notify_status"] = config.getString("smtp_notify_status");
@@ -256,7 +244,6 @@ void on_get_config() {
 	conf["smtp_pass"] = config.getString("smtp_pass");
 	conf["smtp_from"] = config.getString("smtp_from");
 	conf["smtp_to"] = config.getString("smtp_to");
-	conf["autoclose"] = config.getInt("autoclose");
 
 	String retJson;
 	root.printTo(retJson);
@@ -294,10 +281,8 @@ void on_get_status() {
 
 	JsonObject& status = root.createNestedObject("status");
 
-	status["read_value"] = (int)read_value;
 	status["door_status"] = (int)door_status;
 	status["last_status_change"] = (int)last_status_change_utc;
-	status["read_count"] = read_count;
 	status["firmware_version"] = (int)FIRMWARE_VERSION;
 	status["name"] = config.getString("name");
 	status["mac"] = get_mac();
@@ -345,22 +330,6 @@ void on_post_auth() {
 	oLog.verbose("ok!\r\n");
 }
 
-byte check_door_status_hist() {
-	// perform pattern matching of door status histogram
-	// and return the corresponding results
-	const byte allones = (1 << DOOR_STATUS_HIST_K) - 1;       // 0b1111
-	const byte lowones = (1 << (DOOR_STATUS_HIST_K / 2)) - 1; // 0b0011
-	const byte highones = lowones << (DOOR_STATUS_HIST_K / 2); // 0b1100
-
-	byte _hist = door_status_hist & allones;  // get the lowest K bits
-	if (_hist == 0) return DOOR_STATUS_REMAIN_CLOSED;
-	if (_hist == allones) return DOOR_STATUS_REMAIN_OPEN;
-	if (_hist == lowones) return DOOR_STATUS_JUST_OPENED;
-	if (_hist == highones) return DOOR_STATUS_JUST_CLOSED;
-
-	return DOOR_STATUS_MIXED;
-}
-
 
 void on_post_update_complete() {
 	// finish update and check error
@@ -370,7 +339,6 @@ void on_post_update_complete() {
 	}
 
 	server_send_result(HTML_SUCCESS);
-	restart_timeout = millis() + 2000;
 }
 
 /*
@@ -425,69 +393,26 @@ void time_keeping() {
 }
 
 // periodically check the status of the door based on the sensor type
-void check_status() {
+void onDoorSensorStatusChange() {
+	oLog.verbose("Handling door status change. NewStatus=%i...",door_status);
+		
+	// update timestamp of status change
+	last_status_change_utc = get_utc_time();
 
-	// only process if we've exceeded the read interval
-	if (millis() > last_status_check_millis + (config.getInt("read_interval") * 1000)) {
-		oLog.verbose("Reading door status. ");
+	// write the event to the event log
+	LogStruct l;
+	l.tstamp = last_status_change_utc;
+	l.status = door_status;
+	l.value = door_status;
+	og.write_log(l);
 
-		last_status_check_millis = millis();
-
-		switch (config.getInt("sensor_type")) {
-
-		case SENSORTYPE_ULTRASONIC_SIDE:
-		case SENSORTYPE_ULTRASONIC_CEILING:
-			// check the door status using an ultrasonic distance sensor
-			read_value = og.read_distance();
-
-			//not sure what this is really for...
-			read_count = (read_count + 1) % 100;
-
-			// determine based on the current reading if the door is open or closed
-			door_status = (read_value > config.getInt("dth")) ? 0 : 1;
-
-			// reverse logic for side mount
-			if (config.getInt("sensor_type") == SENSORTYPE_ULTRASONIC_SIDE)
-				door_status = 1 - door_status;
-
-			break;
-
-		case SENSORTYPE_MAGNETIC_CLOSED:
-			// check the door status using a single magentic sensor in the closed position			
-			read_value = door_status = digitalRead(PIN_CLOSED);
-
-			//not sure what this is really for...
-			read_count = (read_count + 1) % 255;
-
-			break;
-		}
-
-		oLog.info("read_count=%i, read_value=%i...", read_count, read_value);
-
-		// tack this status onto the histogram and find out what 'just happened'
-		door_status_hist = (door_status_hist << 1) | door_status;
-		byte event = check_door_status_hist();
-
-		if (event == DOOR_STATUS_JUST_OPENED || event == DOOR_STATUS_JUST_CLOSED) {
-			oLog.info("door status changed! door_status=%i...", door_status);
-			last_status_change_utc = get_utc_time();
-
-			// create a logstruct with this new status
-			// info and write it to the oLog file
-			LogStruct l;
-			l.tstamp = last_status_change_utc;
-			l.status = door_status;
-			l.value = read_value;
-			og.write_log(l);
-
-			// module : email alerts
-			if (config.getInt("smtp_notify_status") == 1 || config.getString("smtp_notify_status") == "on") {
-				mail.send(config.getString("smtp_from"), config.getString("smtp_to"), "Door status changed!", String(last_status_change_utc) + String(door_status));
-			}
-		}
-
-		oLog.info("ok!\r\n");
+	// module : email alerts
+	if (config.getInt("smtp_notify_status") == 1 || config.getString("smtp_notify_status") == "on") {
+		String message = config.getString("name") + " " + (door_status == DOOR_STATUS_OPEN ? "OPENED" : "CLOSED") + " at " + String(last_status_change_utc);
+		mail.send(config.getString("smtp_from"), config.getString("smtp_to"), "Door status changed!", message);
 	}
+
+	oLog.info("ok!\r\n");
 }
 
 /**
@@ -522,6 +447,14 @@ void setup()
 	oLog.init(LOGLEVEL, 115200);
 	oLog.info("Initializing MyGarage...\r\n");
 
+	// setup our file system
+	oLog.info("Mounting SPIFFS...");
+	if (!SPIFFS.begin())
+		oLog.info("failed to mount file system...nok!\r\n");
+	else 
+		oLog.info("ok!\r\n");
+	//SPIFFS.format();
+
 	// initialize local clock and time servers
 	oLog.verbose("Configuring NTP time servers. Server1=%s, Server2=%s...", "pool.ntp.org", "time.nist.org");
 	configTime(0, 0, "pool.ntp.org", "time.nist.org", NULL);
@@ -530,15 +463,29 @@ void setup()
 	// setup the internal factory reset button if held for 1 second
 	//bReset.holdHandler(on_hold_reset, 1000);
 
+	// setup the open sensor
+	oLog.verbose("Configuring door sensor handlers...");
+	door_sensor.pressHandler(openPressHandler);
+	door_sensor.releaseHandler(openReleaseHandler);
+	oLog.verbose("ok!\r\n");
+
+
+	// relay
+	oLog.verbose("Configuring relay output...");
+	digitalWrite(PIN_RELAY, LOW);
+	pinMode(PIN_RELAY, OUTPUT);
+	oLog.verbose("ok!\r\n");
+
 	// DEPRECATE: OpenGarage object
 	og.begin();
 
-	//SPIFFS.format();
-
 	// initialize configuration object with the default config values then 
 	// load the configuration from a JSON file on top for custom values
+	oLog.verbose("Loading configuration...");
 	config.setDefaultVector(defaultConfig);
+	oLog.verbose("from file...");
 	config.loadJsonFile(CONFIG_FNAME);
+	oLog.verbose("ok!\r\n");
 
 	// setup DHCP hostname, hopefully this works and will allow us to
 	// access the device by its device name on a windows network. have 
@@ -635,11 +582,22 @@ void setup()
 	LogStruct current_log;
 	og.read_log(current_log, log_id);
 	oLog.info("got tstamp=%i, status=%i, value=%i...", current_log.tstamp, current_log.status, current_log.value);
-	door_status_hist = (current_log.status == 1 ? 0b1111 : 0b0000);
 	oLog.info("ok!\r\n");
 
 	oLog.info("MyGarage has finished booting and is going into monitor mode. Read Interval=%i, Sensor Type=%i\r\n", (config.getInt("read_interval") * 1000), config.getInt("sensor_type"));
 
+}
+
+void openPressHandler(Button &btn)
+{
+	door_status = DOOR_STATUS_OPEN;
+	onDoorSensorStatusChange();
+}
+
+void openReleaseHandler(Button &btn)
+{
+	door_status = DOOR_STATUS_CLOSED;
+	onDoorSensorStatusChange();
 }
 
 // The main processing loop for the application. While the
@@ -655,9 +613,9 @@ void loop() {
 	// maintain the internal clock and periodically sync via NTP
 	time_keeping();
 
-	// check the status sensors and process accordingly
-	check_status();
-
 	// allow the webserver to handle any client requests
 	server->handleClient();
+
+	// handle buttons
+	door_sensor.isPressed();
 }

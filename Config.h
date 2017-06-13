@@ -9,6 +9,9 @@ using namespace std;
 
 // define a struct to hold configuration options
 struct ConfigStruct {
+
+
+
 	String key;
 	String sval;
 	int ival;
@@ -36,6 +39,9 @@ struct ConfigStruct {
 
 class Config {
 public:
+
+
+
 
 	bool setDefaultVector(const vector<ConfigStruct>&);
 	bool setCustomVector(vector<ConfigStruct>&);

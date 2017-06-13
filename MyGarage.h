@@ -68,12 +68,9 @@
 
 // door status histogram
 // number of values (maximum is 8)
-#define DOOR_STATUS_HIST_K        4
-#define DOOR_STATUS_REMAIN_CLOSED 0
-#define DOOR_STATUS_REMAIN_OPEN   1
-#define DOOR_STATUS_JUST_OPENED   2
-#define DOOR_STATUS_JUST_CLOSED   3
-#define DOOR_STATUS_MIXED         4
+#define DOOR_STATUS_UNKNOWN  0
+#define DOOR_STATUS_OPEN     1
+#define DOOR_STATUS_CLOSED   2
 
 #define HTML_OK                0x00
 #define HTML_SUCCESS           0x01

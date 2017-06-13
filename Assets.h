@@ -118,14 +118,6 @@ background-color: #ccc;
 <option value="2">Magnetic - Closed Sensor</option>
 </select>
 </div>
-<div class="two wide field">
-<label for="dth">Threshold (cm)</label>
-<input type="text" size=4 maxlength=4 id="dth" name="dth" value="">
-</div>
-<div class="two wide field">
-<label for="read_interval">Read Interval (s)</label>
-<input type="text" size=3 maxlength=3 id="read_interval" name="read_interval" value="">
-</div>
 </div>
 <!-- NOTIFICATION SETTINGS -->
 <h3 class="ui dividing header">Notification Settings</h3>
@@ -336,8 +328,6 @@ var config = jsonConfig.config;
 // update all the fields manually - there may be a better way
 $("#firmware_version").text("v" + (config.firmware_version / 100 >> 0) + "." + (config.firmware_version / 10 % 10 >> 0) + "." + (config.firmware_version % 10 >> 0));
 $("#sensor_type").val(config.sensor_type);
-$("#dth").val(config.dth);
-$("#read_interval").val(config.read_interval);
 $("#http_port").val(config.http_port);
 $("#name").val(config.name);
 $(".lbl_name").text(config.name);
