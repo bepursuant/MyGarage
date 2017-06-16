@@ -117,19 +117,6 @@
                         </div>
                     </div>
 
-                <!-- SENSOR SETTINGS -->
-                    <h3 class="ui dividing header">Sensor Settings</h3>
-                    <div class="fields">
-                        <div class="four wide field">
-                            <label for="sensor_type">Sensor Type</label>
-                            <select name="sensor_type" id="sensor_type" class="dropdown">
-                                <option value="0">Ultrasonic - Ceiling Mount</option>
-                                <option value="1">Ultrasonic - Side Mount</option>
-                                <option value="2">Magnetic - Closed Sensor</option>
-                            </select>
-                        </div>
-                    </div>
-
                 <!-- NOTIFICATION SETTINGS -->
                     <h3 class="ui dividing header">Notification Settings</h3>
                     <div class="fields">
@@ -376,20 +363,17 @@
 
                 // update all the fields manually - there may be a better way
                 $("#firmware_version").text("v" + (config.firmware_version / 100 >> 0) + "." + (config.firmware_version / 10 % 10 >> 0) + "." + (config.firmware_version % 10 >> 0));
-                $("#sensor_type").val(config.sensor_type);
                 $("#http_port").val(config.http_port);
                 $("#name").val(config.name);
                 $(".lbl_name").text(config.name);
-                $("#auth").val(config.auth);
-                $("#smtp_notify_boot").prop("checked", config.smtp_notify_boot == "on" ? 1 : 0);
-                $("#smtp_notify_status").prop("checked", config.smtp_notify_status == "on" ? 1 : 0);
+                $("#smtp_notify_boot").prop("checked", config.smtp_notify_boot ? 1 : 0);
+                $("#smtp_notify_status").prop("checked", config.smtp_notify_status ? 1 : 0);
                 $("#smtp_host").val(config.smtp_host);
                 $("#smtp_port").val(config.smtp_port);
                 $("#smtp_user").val(config.smtp_user);
                 $("#smtp_pass").val(config.smtp_pass);
                 $("#smtp_from").val(config.smtp_from);
                 $("#smtp_to").val(config.smtp_to);
-                $("#smtp_subject").val(config.smtp_subject);
 
             });
         }

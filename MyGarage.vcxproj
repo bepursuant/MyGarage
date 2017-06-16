@@ -97,7 +97,6 @@
   <ItemGroup>
     <ClCompile Include="Button.cpp" />
     <ClCompile Include="CompileAssets.cpp" />
-    <ClCompile Include="Config.cpp" />
     <ClCompile Include="Log.cpp" />
     <ClCompile Include="OpenGarage.cpp" />
     <ClCompile Include="Mail.cpp" />

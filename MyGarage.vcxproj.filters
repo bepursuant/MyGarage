@@ -56,9 +56,6 @@
     <ClCompile Include="CompileAssets.cpp">
       <Filter>Asset Compiler</Filter>
     </ClCompile>
-    <ClCompile Include="Config.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Log.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
