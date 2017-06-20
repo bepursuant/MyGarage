@@ -221,8 +221,11 @@ void on_get_config() {
 	conf["smtp_host"] = config.smtp_host;
 	conf["smtp_port"] = config.smtp_port;
 	conf["smtp_user"] = config.smtp_user;
+	// smtp_pass is read only
 	conf["smtp_from"] = config.smtp_from;
 	conf["smtp_to"] = config.smtp_to;
+	conf["ap_ssid"] = config.ap_ssid;
+	// ap_pass is readonly
 
 	String retJson;
 	root.printTo(retJson);
@@ -284,8 +287,16 @@ void on_post_config() {
 		config.smtp_to = server->arg("smtp_to");
 	}
 
+	if (server->hasArg("ap_ssid")) {
+		config.ap_ssid = server->arg("ap_ssid");
+	}
+
+	if (server->hasArg("ap_pass")) {
+		config.ap_pass = server->arg("ap_pass");
+	}
+
 	// write to filesystem
-	//_save(config, CONFIG_FNAME);
+	write(CONFIG_FNAME, config);
 
 	server_send_result(HTML_SUCCESS);
 	oLog.verbose("ok!\r\n");
@@ -463,7 +474,12 @@ void configHoldHandler(Button& b) {
 void configPressHandler(Button& b) {
 	oLog.error("Config button pressed, enabling configuration portal...");
 
-	oLog.error("not enabled!\r\n");
+	if (WiFi.softAP(config.name.c_str(), config.devicekey.c_str())) {
+		oLog.info("Configuration portal enabled by button press...ok!\r\n");
+	}
+	else {
+		oLog.error("Could not open configuration portal as soft ap...nok!\r\n");
+	}
 }
 
 
@@ -484,7 +500,7 @@ void setup()
 
 	// user configuration from fs
 	oLog.verbose("Loading configuration...");
-	//_load(config, CONFIG_FNAME);
+	read(CONFIG_FNAME, config);
 	oLog.verbose("ok!\r\n");
 
 	// relay
@@ -639,25 +655,4 @@ void loop() {
 	// allow the webserver to handle any client requests
 	server->handleClient();
 
-}
-
-
-bool _save(size_t &datastruct, String filename) {
-	oLog.verbose("Saving struct to SPIFFS. Filename=%s...", filename.c_str());
-	File file = SPIFFS.open(filename,"wb");
-
-	file.print(reinterpret_cast<char*>(&datastruct));
-
-	file.close();
-	oLog.verbose("ok!\r\n");
-}
-
-bool _load(size_t &datastruct, String filename) {
-	oLog.verbose("Loading struct from SPIFFS. Filename=%s...", filename.c_str());
-	File file = SPIFFS.open(filename, "rb");
-
-	file.readBytes(reinterpret_cast<char*>(&datastruct),sizeof(datastruct));
-
-	file.close();
-	oLog.verbose("ok!\r\n");
 }

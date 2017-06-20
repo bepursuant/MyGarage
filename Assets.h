@@ -71,7 +71,7 @@ background-color: #ccc;
 <b class="lbl_status"></b> at <b class="lbl_time"></b>
 </div>
 <div class="description">
-<div id="door-button" class="ui massive button primary fluid">Toggle</div>
+<button id="door-button" class="ui massive button primary fluid">Toggle</button>
 </div>
 </div>
 </div>
@@ -156,9 +156,7 @@ background-color: #ccc;
 </div>
 </div>
 <!-- SUBMIT BUTTON -->
-<div class="ui large blue button" id="config_submit">
-<i class="save icon"></i> Save Settings
-</div>
+<input type="submit" class="ui large blue button" id="config_submit" name="config_submit" value="Save Settings" />
 </form>
 
 <form method="POST" action="/update" enctype="multipart/form-data" class="ui form">

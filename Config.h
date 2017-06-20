@@ -15,6 +15,8 @@
 #define DEFAULT_SMTP_PASS	""
 #define DEFAULT_SMTP_FROM	""
 #define DEFAULT_SMTP_TO		""
+#define DEFAULT_AP_SSID		""
+#define DEFAULT_AP_PASS		""
 
 struct Config {
 
@@ -29,7 +31,23 @@ struct Config {
 	String smtp_pass = DEFAULT_SMTP_PASS;
 	String smtp_from = DEFAULT_SMTP_FROM;
 	String smtp_to = DEFAULT_SMTP_TO;
+	String ap_ssid = DEFAULT_AP_SSID;
+	String ap_pass = DEFAULT_AP_PASS;
 
+};
+
+void write(String file_name, Config& data) // Writes the given OBJECT data to the given file name.
+{
+	File file = SPIFFS.open(file_name, "w+");
+	file.write(reinterpret_cast<unsigned char*>(&data), sizeof(Config));
+	file.close();
+};
+
+void read(String file_name, Config& data) // Reads the given file and assigns the data to the given OBJECT.
+{
+	File file = SPIFFS.open(file_name, "rb");
+	file.read(reinterpret_cast<unsigned char*>(&data), sizeof(Config));
+	file.close();
 };
 
 #endif
