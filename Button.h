@@ -19,7 +19,7 @@
 #include <inttypes.h>
 
 #define BUTTON_PULLUP HIGH
-#define BUTTON_PULLUP_INTERNAL 2
+#define BUTTON_PULLUP_INTERNAL INPUT_PULLUP
 #define BUTTON_PULLDOWN LOW
 
 class Button;

@@ -30,7 +30,7 @@
 */
 Button::Button(uint8_t buttonPin, uint8_t buttonMode) {
 	pin = buttonPin;
-	pinMode(pin, INPUT);
+	pinMode(pin, INPUT_PULLUP);
 
 	buttonMode == BUTTON_PULLDOWN ? pulldown() : pullup(buttonMode);
 	state = 0;

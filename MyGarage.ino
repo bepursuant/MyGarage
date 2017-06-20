@@ -412,11 +412,6 @@ void time_keeping() {
 	}
 }
 
-void onTest(Button &b)
-{
-	oLog.info("!");
-}
-
 // periodically check the status of the door based on the sensor type
 void onDoorSensorStatusChange() {
 	oLog.verbose("Handling door status change. NewStatus=%i...", door_status);
@@ -502,12 +497,12 @@ void setup()
 	oLog.verbose("Configuring human interfaces...");
 
 	// config portal on press, reset on hold
-	btnConfig.pressHandler(onTest);
-	btnConfig.holdHandler(onTest, BUTTON_CONFIG_HOLDTIME);
+	btnConfig.pressHandler(configPressHandler);
+	btnConfig.holdHandler(configHoldHandler, BUTTON_CONFIG_HOLDTIME);
 
 	// for when the sensor opens and closes
-	btnClosed.pressHandler(onTest);
-	btnClosed.releaseHandler(onTest);
+	btnClosed.pressHandler(closedPressHandler);
+	btnClosed.releaseHandler(closedReleaseHandler);
 
 	oLog.verbose("ok!\r\n");
 
