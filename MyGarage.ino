@@ -16,8 +16,8 @@ ESP8266WebServer *server = NULL;
 ESP8266HTTPUpdateServer updater;
 
 // physical buttons
-Button bReset;
-Button bDoorClosed;
+Button btnConfig = Button(PIN_CONFIG, BUTTON_PULLUP_INTERNAL);
+Button btnClosed = Button(PIN_CLOSED, BUTTON_PULLUP_INTERNAL);
 
 // global door status
 static byte door_status;
@@ -284,6 +284,9 @@ void on_post_config() {
 		config.smtp_to = server->arg("smtp_to");
 	}
 
+	// write to filesystem
+	//_save(config, CONFIG_FNAME);
+
 	server_send_result(HTML_SUCCESS);
 	oLog.verbose("ok!\r\n");
 }
@@ -409,6 +412,11 @@ void time_keeping() {
 	}
 }
 
+void onTest(Button &b)
+{
+	oLog.info("!");
+}
+
 // periodically check the status of the door based on the sensor type
 void onDoorSensorStatusChange() {
 	oLog.verbose("Handling door status change. NewStatus=%i...", door_status);
@@ -436,62 +444,52 @@ void onDoorSensorStatusChange() {
 * Called when the physical button is pressed. When pressed we
 * will reset the entire device to factory settings and reboot
 **/
-void resetHoldHandler(Button& b) {
+void configHoldHandler(Button& b) {
 	oLog.error("Reset button held, resetting to factory defaults...");
 
 	// clear the wifi configuration, delegated to the wifimanager. We must initialize a
 	// new wifimanager object here as the original was already garbage collected
 	oLog.error("reset wifi config...");
-	WiFiManager wifiManager;
-	wifiManager.resetSettings();
+	//WiFiManager wifiManager;
+	//wifiManager.resetSettings();
 
 	// clear the FS which includes the config and oLog files
 	oLog.error("formatting file system...");
-	SPIFFS.format();
+	//SPIFFS.format();
 
 	oLog.error("ok!\r\n");
 
 	// restart the ESP to establish a fresh state
 	oLog.info("ESP was reset and will now be rebooted...\r\n");
-	ESP.reset();
+	//ESP.reset();
 }
+
+
+void configPressHandler(Button& b) {
+	oLog.error("Config button pressed, enabling configuration portal...");
+
+	oLog.error("not enabled!\r\n");
+}
+
 
 
 
 void setup()
 {
-	// initialize logging and begin output
+	// serial and file logging and begin output
 	oLog.init(LOGLEVEL, 115200);
 	oLog.info("Initializing MyGarage...\r\n");
 
-	// setup our file system
+	// file system for config and logs
 	oLog.info("Mounting SPIFFS...");
 	if (!SPIFFS.begin())
 		oLog.info("failed to mount file system...nok!\r\n");
 	else 
 		oLog.info("ok!\r\n");
 
-	// load configuration values from file system
+	// user configuration from fs
 	oLog.verbose("Loading configuration...");
-	//config.loadJsonFile(CONFIG_FNAME);
-	oLog.verbose("ok!\r\n");
-
-	// initialize local clock and time servers
-	oLog.verbose("Configuring NTP time servers. Server1=%s, Server2=%s...", "pool.ntp.org", "time.nist.org");
-	configTime(0, 0, "pool.ntp.org", "time.nist.org", NULL);
-	oLog.verbose("ok!\r\n");
-
-	// setup the internal factory reset button if held for 1 second
-	oLog.verbose("Configuring human interfaces...");
-	bReset = Button(PIN_BUTTON, BUTTON_PULLUP);
-	bReset.holdHandler(resetHoldHandler, 1000);
-	oLog.verbose("ok!\r\n");
-
-	// setup the open sensor
-	oLog.verbose("Configuring door sensor...");
-	bDoorClosed = Button(PIN_CLOSED, BUTTON_PULLUP);
-	bDoorClosed.pressHandler(openPressHandler);
-	bDoorClosed.releaseHandler(openReleaseHandler);
+	//_load(config, CONFIG_FNAME);
 	oLog.verbose("ok!\r\n");
 
 	// relay
@@ -500,13 +498,31 @@ void setup()
 	digitalWrite(PIN_RELAY, LOW);
 	oLog.verbose("ok!\r\n");
 
+	// internal factory reset button if held for 1 second
+	oLog.verbose("Configuring human interfaces...");
+
+	// config portal on press, reset on hold
+	btnConfig.pressHandler(onTest);
+	btnConfig.holdHandler(onTest, BUTTON_CONFIG_HOLDTIME);
+
+	// for when the sensor opens and closes
+	btnClosed.pressHandler(onTest);
+	btnClosed.releaseHandler(onTest);
+
+	oLog.verbose("ok!\r\n");
+
+	// local clock and time servers
+	oLog.verbose("Configuring NTP time servers. Server1=%s, Server2=%s...", "pool.ntp.org", "time.nist.org");
+	configTime(0, 0, "pool.ntp.org", "time.nist.org", NULL);
+	oLog.verbose("ok!\r\n");
+	
 	// DEPRECATE: OpenGarage object
 	og.begin();
 
 	// setup DHCP hostname, hopefully this works and will allow us to
 	// access the device by its device name on a windows network. have 
 	// to convert to a char array because our declaration is weird
-	oLog.verbose("Configuring wifi. Hostname=%s...", config.name.c_str());
+	oLog.verbose("Configuring WiFi. Hostname=%s...", config.name.c_str());
 	if (WiFi.hostname(config.name)) {
 		oLog.verbose("ok!\r\n");
 	}
@@ -517,20 +533,20 @@ void setup()
 	// initialize a WiFiManager to establish an existing WiFi connection
 	// or offer a configuration portal to the user to connect to a new
 	// network, will be garbage collected after connection
-	WiFiManager wifiManager;
+	//WiFiManager wifiManager;
 
 	//set config save notify callback
 	//wifiManager.setSaveConfigCallback(saveConfigCallback);
 
 	//sets timeout until configuration portal gets turned off
 	//useful to make it all retry or go to sleep (seconds)
-	wifiManager.setTimeout(WIFI_PORTAL_TIMEOUT);
-	wifiManager.setConfigPortalTimeout(WIFI_PORTAL_TIMEOUT);
+	//wifiManager.setTimeout(WIFI_PORTAL_TIMEOUT);
+	//wifiManager.setConfigPortalTimeout(WIFI_PORTAL_TIMEOUT);
 
 	// fetches previously stored ssid and password and tries to connect
 	// if it cannot connect it starts an access point where the user
 	// can setup the WiFi AP then goes into blocking loop waiting
-	oLog.info("Auto Connecting to WiFi Network...\r\n");
+	/*oLog.info("Auto Connecting to WiFi Network...\r\n");
 	if (!wifiManager.autoConnect(config.name.c_str(), NULL)) {
 		oLog.info("failed to connect to AP, restarting in 30 ...nok!\r\n");
 		delay(300000);
@@ -538,7 +554,7 @@ void setup()
 		ESP.reset();
 		delay(500000);
 	}
-	oLog.info("ok!\r\n");
+	oLog.info("ok!\r\n");*/
 
 	// register with mdns, wont need this for a while
 	oLog.info("Configuring MDNS. Hostname=%s...", config.name.c_str());
@@ -599,13 +615,13 @@ void setup()
 
 }
 
-void openPressHandler(Button &btn)
+void closedPressHandler(Button &btn)
 {
 	door_status = DOOR_STATUS_OPEN;
 	onDoorSensorStatusChange();
 }
 
-void openReleaseHandler(Button &btn)
+void closedReleaseHandler(Button &btn)
 {
 	door_status = DOOR_STATUS_CLOSED;
 	onDoorSensorStatusChange();
@@ -622,12 +638,31 @@ void loop() {
 	time_keeping();
 
 	// handle human interfaces
-	bReset.isPressed();
-
-	// handle door sensor
-	bDoorClosed.isPressed();
+	btnConfig.isPressed();
+	btnClosed.isPressed();
 
 	// allow the webserver to handle any client requests
 	server->handleClient();
 
+}
+
+
+bool _save(size_t &datastruct, String filename) {
+	oLog.verbose("Saving struct to SPIFFS. Filename=%s...", filename.c_str());
+	File file = SPIFFS.open(filename,"wb");
+
+	file.print(reinterpret_cast<char*>(&datastruct));
+
+	file.close();
+	oLog.verbose("ok!\r\n");
+}
+
+bool _load(size_t &datastruct, String filename) {
+	oLog.verbose("Loading struct from SPIFFS. Filename=%s...", filename.c_str());
+	File file = SPIFFS.open(filename, "rb");
+
+	file.readBytes(reinterpret_cast<char*>(&datastruct),sizeof(datastruct));
+
+	file.close();
+	oLog.verbose("ok!\r\n");
 }

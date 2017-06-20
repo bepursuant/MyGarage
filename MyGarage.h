@@ -17,38 +17,23 @@
 //#include <Button.h>
  
 /** Firmware version, hardware version, and maximal values */
-#define FIRMWARE_VERSION    201  // Firmware version: 100 means 1.0.0
+#define FIRMWARE_VERSION    202  // Firmware version: 100 means 1.0.0
 
-/** GPIO pins = AVOID D3, D4, and D8 due to boot mode! */
-// for ultrasonic sensors
-#define PIN_TRIG   D1
-#define PIN_ECHO   D4
-
-// open/close relay
+// gpio pins (avoid D3,4,and8)
+#define PIN_CONFIG D2
 #define PIN_RELAY  D5
-
-// reset button
-#define PIN_BUTTON D2
 #define PIN_LED    D6
 #define PIN_CLOSED D7
 
-#define PIN_RESET  D0
-
 // Config file name
-#define CONFIG_FNAME    "/config.json"
+#define CONFIG_FNAME    "/config.dat"
 
 // Log file name
 #define LOG_FNAME       "/log.dat"
 #define LOGLEVEL LOGLEVEL_VERBOSE
 
-
-#define SENSORTYPE_ULTRASONIC_CEILING  0
-#define SENSORTYPE_ULTRASONIC_SIDE     1
-#define SENSORTYPE_MAGNETIC_CLOSED	   2
-
-
 #define MAX_LOG_RECORDS    100
-#define WIFI_PORTAL_TIMEOUT 120 //seconds
+#define WIFI_PORTAL_TIMEOUT 120
 
 // door status histogram
 // number of values (maximum is 8)
@@ -70,27 +55,8 @@
 #define HTML_REDIRECT_HOME     0xFF
 
 
-#define BUTTON_RESET_TIMEOUT  4000  // if button is pressed for at least 5 seconds, reset
-#define LED_FAST_BLINK 100
-#define LED_SLOW_BLINK 500
-
+#define BUTTON_CONFIG_HOLDTIME  5000  // if button is pressed for at least 5 seconds, reset
 #define TIME_SYNC_TIMEOUT  3600
-
-/** Serial debug functions */
-#define DEBUG
-#ifdef DEBUG
-
-	#define DEBUG_BEGIN(x)  { delay(2000); Serial.begin(x); }
-	#define DEBUG_PRINT(x) { Serial.print(x); }
-	#define DEBUG_PRINTLN(x) { Serial.println(x); }
-
-#else
-
-	#define DEBUG_BEGIN(x)   {}
-	#define DEBUG_PRINT(x)   {}
-	#define DEBUG_PRINTLN(x) {}
-
-#endif
 
 typedef unsigned char byte;
 typedef unsigned long ulong;

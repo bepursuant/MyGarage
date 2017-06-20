@@ -132,20 +132,6 @@ bool OpenGarage::read_log_end() {
 	return true;
 }
 
-uint OpenGarage::read_distance() {
-	ulong distance, duration;
-
-	digitalWrite(PIN_TRIG, LOW);
-	delayMicroseconds(2);
-	digitalWrite(PIN_TRIG, HIGH);
-	delayMicroseconds(10);
-	digitalWrite(PIN_TRIG, LOW);
-
-	duration = pulseIn(PIN_ECHO, HIGH, 10000);
-	distance = (duration / 2) / 29.1;
-
-	return (uint)distance;
-}
 
 
 bool OpenGarage::open() {
