@@ -25,7 +25,7 @@
 
 #include <Arduino.h>
 #include <FS.h>
-#include "Logging.h"
+#include "Log.h"
 #include "MyGarage.h"
 
 // to hold status logs
@@ -40,7 +40,6 @@ public:
 	static uint current_log_id;
 
 	static void begin();
-	static void restart() { digitalWrite(PIN_RESET, LOW); }
 
 	static void log_reset();
 	static void write_log(const LogStruct& data);
@@ -50,7 +49,7 @@ public:
 	static bool read_log_end();
 
 	static uint read_distance(); // centimeter
-	static byte get_button() { return digitalRead(PIN_BUTTON); }
+	static byte get_button() { return digitalRead(PIN_CONFIG); }
 	static byte get_led() { return digitalRead(PIN_LED); }
 
 	static void set_led(byte status) { digitalWrite(PIN_LED, status); }

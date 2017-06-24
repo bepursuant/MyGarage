@@ -33,30 +33,6 @@ uint OpenGarage::current_log_id;
 static const char* log_fname = LOG_FNAME;
 
 void OpenGarage::begin() {
-	oLog.info("Configuring GPIO...");
-	digitalWrite(PIN_RESET, HIGH);  // reset button
-	pinMode(PIN_RESET, OUTPUT);
-
-	digitalWrite(PIN_RELAY, LOW);   // relay
-	pinMode(PIN_RELAY, OUTPUT);
-
-	digitalWrite(PIN_LED, LOW);     // status LED
-	pinMode(PIN_LED, OUTPUT);
-
-	digitalWrite(PIN_TRIG, HIGH);   // trigger
-	pinMode(PIN_TRIG, OUTPUT);
-
-	pinMode(PIN_ECHO, INPUT);       // echo
-	pinMode(PIN_CLOSED, INPUT_PULLUP); //closed sensor
-	oLog.info("ok!\r\n");
-
-	oLog.info("Mounting SPIFFS...");
-	if (!SPIFFS.begin()) {
-		oLog.info("failed to mount...nok!\r\n");
-	}
-	else {
-		oLog.info("ok!\r\n");
-	}
 
 }
 
@@ -156,20 +132,6 @@ bool OpenGarage::read_log_end() {
 	return true;
 }
 
-uint OpenGarage::read_distance() {
-	ulong distance, duration;
-
-	digitalWrite(PIN_TRIG, LOW);
-	delayMicroseconds(2);
-	digitalWrite(PIN_TRIG, HIGH);
-	delayMicroseconds(10);
-	digitalWrite(PIN_TRIG, LOW);
-
-	duration = pulseIn(PIN_ECHO, HIGH, 10000);
-	distance = (duration / 2) / 29.1;
-
-	return (uint)distance;
-}
 
 
 bool OpenGarage::open() {
