@@ -12,9 +12,6 @@
 #include <time.h>
 #include <FS.h>
 #include <vector>
-
-// For handling physical button presses with debouncing and long press events
-//#include <Button.h>
  
 /** Firmware version, hardware version, and maximal values */
 #define FIRMWARE_VERSION    202  // Firmware version: 100 means 1.0.0
@@ -55,7 +52,7 @@
 #define HTML_REDIRECT_HOME     0xFF
 
 
-#define BUTTON_CONFIG_HOLDTIME  5000  // if button is pressed for at least 5 seconds, reset
+#define BUTTON_CONFIG_HOLDTIME  15000  // if button is pressed for 15 seconds, reset
 #define TIME_SYNC_TIMEOUT  3600
 
 typedef unsigned char byte;

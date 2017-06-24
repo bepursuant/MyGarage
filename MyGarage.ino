@@ -13,7 +13,7 @@ OpenGarage og;
 
 // object that will handle the actual http server functions
 ESP8266WebServer *server = NULL;
-ESP8266HTTPUpdateServer updater;
+ESP8266HTTPUpdateServer *updater = NULL;
 
 // physical buttons
 Button btnConfig = Button(PIN_CONFIG, BUTTON_PULLUP_INTERNAL);
@@ -160,12 +160,12 @@ void on_get_controller() {
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 
-	root["door_status"] = (int)door_status;
+	root["door_status"] = door_status;
 	root["last_status_change"] = last_status_change_utc;
 	root["firmware_version"] = FIRMWARE_VERSION;
 	root["name"] = config.name;
 	root["mac"] = get_mac();
-	root["cid"] = (int)ESP.getChipId();
+	root["cid"] = ESP.getChipId();
 
 	String retJson;
 	root.printTo(retJson);
@@ -309,7 +309,7 @@ void on_get_status() {
 
 	JsonObject& status = root.createNestedObject("status");
 
-	status["door_status"] = (int)door_status;
+	status["door_status"] = door_status;
 	status["last_status_change"] = last_status_change_utc;
 	status["firmware_version"] = FIRMWARE_VERSION;
 	status["name"] = config.name;
@@ -340,7 +340,7 @@ void on_post_auth() {
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 
-	if (server->hasArg("auth_devicekey") && (server->arg("auth_devicekey") == config.devicekey)) {
+	if (server->hasArg("devicekey") && (server->arg("devicekey") == config.devicekey)) {
 		root["result"] = "AUTH_SUCCESS";
 		root["token"] = config.devicekey;
 		oLog.verbose("auth success...");
@@ -594,15 +594,13 @@ void setup()
 	server->on("/", on_get_index);
 	server->on("/portal", on_get_portal);
 	server->on("/auth", HTTP_POST, on_post_auth);
-	//server->on("/update", HTTP_POST, on_post_update_complete, on_post_update_start);
 	server->on("/json/logs", HTTP_GET, on_get_logs);
 	server->on("/json/status", HTTP_GET, on_get_status);
 	server->on("/json/controller", on_post_controller);
 	server->on("/json/controller", HTTP_GET, on_get_controller);
 	server->on("/json/config", HTTP_GET, on_get_config);
 	server->on("/json/config", HTTP_POST, on_post_config);
-
-	updater.setup(server);
+	updater->setup(server);
 	server->begin();
 
 	oLog.info("ok!\r\n");
@@ -642,11 +640,6 @@ void closedReleaseHandler(Button &btn)
 // device is powered this function will loop infinitely
 // and allow us to handle processing and UI function
 void loop() {
-	// allow for OTA
-	//ArduinoOTA.handle();
-
-	// maintain the internal clock and periodically sync via NTP
-	time_keeping();
 
 	// handle human interfaces
 	btnConfig.isPressed();
@@ -654,5 +647,15 @@ void loop() {
 
 	// allow the webserver to handle any client requests
 	server->handleClient();
+
+	handleWiFi();
+
+	// maintain the internal clock and periodically sync via NTP
+	time_keeping();
+
+}
+
+void handleWiFi()
+{
 
 }

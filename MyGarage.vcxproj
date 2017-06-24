@@ -56,8 +56,15 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <CustomBuildStep>
-      <Command>CompileAssets.exe Portal.html assets_portal</Command>
+      <Command>
+      </Command>
     </CustomBuildStep>
+    <PreBuildEvent>
+      <Command>CompileAll.bat</Command>
+    </PreBuildEvent>
+    <PreBuildEvent>
+      <Message>Compiling Assets</Message>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
