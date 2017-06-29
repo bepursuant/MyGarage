@@ -3,6 +3,7 @@
 
 #include "FS.h"
 #include "Log.h"
+#include <ArduinoJson.h>
 
 #define DEFAULT_NAME		"MyGarage"
 #define DEFAULT_DEVICEKEY	"opendoor"
@@ -18,36 +19,41 @@
 #define DEFAULT_AP_SSID		""
 #define DEFAULT_AP_PASS		""
 
-struct Config {
+class Config {
 
-	String name = DEFAULT_NAME;
-	String devicekey = DEFAULT_DEVICEKEY;
-	int http_port = DEFAULT_HTTP_PORT;
-	bool smtp_notify_boot = DEFAULT_SMTP_NOTIFY_BOOT;
-	bool smtp_notify_status = DEFAULT_SMTP_NOTIFY_BOOT;
-	String smtp_host = DEFAULT_SMTP_HOST;
-	int smtp_port = DEFAULT_SMTP_PORT;
-	String smtp_user = DEFAULT_SMTP_USER;
-	String smtp_pass = DEFAULT_SMTP_PASS;
-	String smtp_from = DEFAULT_SMTP_FROM;
-	String smtp_to = DEFAULT_SMTP_TO;
-	String ap_ssid = DEFAULT_AP_SSID;
-	String ap_pass = DEFAULT_AP_PASS;
+	public:
+		String name = DEFAULT_NAME;
+		String devicekey = DEFAULT_DEVICEKEY;
+		int http_port = DEFAULT_HTTP_PORT;
+		bool smtp_notify_boot = DEFAULT_SMTP_NOTIFY_BOOT;
+		bool smtp_notify_status = DEFAULT_SMTP_NOTIFY_BOOT;
+		String smtp_host = DEFAULT_SMTP_HOST;
+		int smtp_port = DEFAULT_SMTP_PORT;
+		String smtp_user = DEFAULT_SMTP_USER;
+		String smtp_pass = DEFAULT_SMTP_PASS;
+		String smtp_from = DEFAULT_SMTP_FROM;
+		String smtp_to = DEFAULT_SMTP_TO;
+		String ap_ssid = DEFAULT_AP_SSID;
+		String ap_pass = DEFAULT_AP_PASS;
+
+		
 
 };
 
-void write(String file_name, Config& data) // Writes the given OBJECT data to the given file name.
+
+// define the SAVE implementation for the above structure
+bool Save(Config &cfg, unsigned char logLevel = EEPROM_log_RW)
 {
-	File file = SPIFFS.open(file_name, "w+");
-	file.write(reinterpret_cast<unsigned char*>(&data), sizeof(Config));
-	file.close();
-};
+	return eepromIf<Config>::Save(&cfg, logLevel);
+}
 
-void read(String file_name, Config& data) // Reads the given file and assigns the data to the given OBJECT.
+// define the LOAD implementation for the above structure
+bool Load(Config &cfg, unsigned char logLevel = EEPROM_log_RW)
 {
-	File file = SPIFFS.open(file_name, "rb");
-	file.read(reinterpret_cast<unsigned char*>(&data), sizeof(Config));
-	file.close();
-};
+	return eepromIf<Config>::Load(&cfg, logLevel);
+}
+
+template<> int eepromIf<Config>::Signature = 0x43534553;
+template<> int eepromIf<Config>::baseOffset = 0;
 
 #endif

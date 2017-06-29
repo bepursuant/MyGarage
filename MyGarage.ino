@@ -5,6 +5,7 @@
 #include "Mail.h"		// Pursuant library for sending email messages
 #include "OpenGarage.h"	// DEPRECATE for controlling the garage door
 #include "Button.h"		// library for reacting to button presses
+#include "SerializeEeprom.h" // External library for saving to eeprom
 
 Config config;
 Log oLog;
@@ -237,68 +238,108 @@ void on_get_config() {
 void on_post_config() {
 	oLog.verbose("POST /config ...");
 
-	if (server->hasArg("name")) {
-		config.name = server->arg("name");
+	int i;
+	String s;
+	bool needsRestart = false;
+
+	if (server->hasArg("name") && (s = server->arg("name")) && (s != config.name)) {
+		oLog.debug("Config value updated. Name=name, OldValue=%s, NewValue=%s.", config.name.c_str(), s.c_str());
+		config.name = s;
+		needsRestart = true;
 	}
 
-	if (server->hasArg("devicekey")) {
-		config.devicekey = server->arg("devicekey");
+	if (server->hasArg("devicekey") && (s = server->arg("devicekey")) && (s != config.devicekey)) {
+		oLog.debug("Config value updated. Name=devicekey, OldValue=***, NewValue=***.");
+		config.devicekey = s;
+		needsRestart = true;
 	}
 
-	if (server->hasArg("http_port")) {
-		config.http_port = server->arg("http_port").toInt();
+	if (server->hasArg("http_port") && (i = server->arg("http_port").toInt()) && (i != config.http_port)) {
+		oLog.debug("Config value updated. Name=http_port, OldValue=%i NewValue=%i.", config.http_port, i);
+		config.http_port = i;
+		needsRestart = true;
 	}
 
-	if (server->hasArg("smtp_notify_boot")) {
+	if (server->hasArg("smtp_notify_boot") && (config.smtp_notify_boot != true)) {
+		oLog.debug("Config value updated. Name=smtp_notify_boot, OldValue=false, NewValue=true.");
 		config.smtp_notify_boot = true;
 	}
 	else {
+		oLog.debug("Config value updated. Name=smtp_notify_boot, OldValue=true, NewValue=false.");
 		config.smtp_notify_boot = false;
 	}
 
 	if (server->hasArg("smtp_notify_status")) {
+		oLog.debug("Config value updated. Name=smtp_notify_status, OldValue=false, NewValue=true.");
 		config.smtp_notify_status = true;
 	}
 	else {
+		oLog.debug("Config value updated. Name=smtp_notify_status, OldValue=true, NewValue=false.");
 		config.smtp_notify_status = false;
 	}
 
-	if (server->hasArg("smtp_host")) {
-		config.smtp_host = server->arg("smtp_host");
+	if (server->hasArg("smtp_host") && (s = server->arg("smtp_host")) && (config.smtp_host != s)) {
+		oLog.debug("Config value updated. Name=smtp_host, OldValue=%s, NewValue=%s.", config.smtp_host.c_str(), s.c_str());
+		config.smtp_host = s;
+		needsRestart = true;
 	}
 
-	if (server->hasArg("smtp_port")) {
-		config.smtp_port = server->arg("smtp_port").toInt();
+	if (server->hasArg("smtp_port") && (i = server->arg("smtp_port").toInt()) && (config.smtp_port != i)) {
+		oLog.debug("Config value updated. Name=smtp_port, OldValue=%i, NewValue=%i.", config.smtp_port, i);
+		config.smtp_port = i;
+		needsRestart = true;
 	}
 
-	if (server->hasArg("smtp_user")) {
-		config.smtp_user = server->arg("smtp_user");
+	if (server->hasArg("smtp_user") && (s = server->arg("smtp_user")) && (config.smtp_user != s)) {
+		oLog.debug("Config value updated. Name=smtp_user, OldValue=%s, NewValue=%s.", config.smtp_user.c_str(), s.c_str());
+		config.smtp_user = s;
+		needsRestart = true;
 	}
 
-	if (server->hasArg("smtp_pass")) {
-		config.smtp_pass = server->arg("smtp_pass");
+	if (server->hasArg("smtp_pass") && (s = server->arg("smtp_pass")) && (config.smtp_pass != s)) {
+		oLog.debug("Config value updated. Name=smtp_pass, OldValue=%s, NewValue=%s.", config.smtp_pass.c_str(), s.c_str());
+		config.smtp_pass = s;
+		needsRestart = true;
 	}
 
-	if (server->hasArg("smtp_from")) {
-		config.smtp_from = server->arg("smtp_from");
+	if (server->hasArg("smtp_from") && (s = server->arg("smtp_from")) && (config.smtp_from != s)) {
+		oLog.debug("Config value updated. Name=smtp_from, OldValue=%s, NewValue=%s.", config.smtp_from.c_str(), s.c_str());
+		config.smtp_from = s;
+		needsRestart = true;
 	}
 
-	if (server->hasArg("smtp_to")) {
-		config.smtp_to = server->arg("smtp_to");
+	if (server->hasArg("smtp_to") && (s = server->arg("smtp_to")) && (config.smtp_to != s)) {
+		oLog.debug("Config value updated. Name=smtp_to, OldValue=%s, NewValue=%s.", config.smtp_to.c_str(), s.c_str());
+		config.smtp_to = s;
+		needsRestart = true;
 	}
 
-	if (server->hasArg("ap_ssid")) {
-		config.ap_ssid = server->arg("ap_ssid");
+	if (server->hasArg("ap_ssid") && (s = server->arg("ap_ssid")) && (config.ap_ssid != s)) {
+		oLog.debug("Config value updated. Name=ap_ssid, OldValue=%s, NewValue=%s.", config.ap_ssid.c_str(), s.c_str());
+		config.ap_ssid = s;
+		needsRestart = true;
 	}
 
-	if (server->hasArg("ap_pass")) {
-		config.ap_pass = server->arg("ap_pass");
+	if (server->hasArg("ap_pass") && (s = server->arg("ap_pass")) && (config.ap_pass != s)) {
+		oLog.debug("Config value updated. Name=ap_pass, OldValue=%s, NewValue=%s.", config.ap_pass.c_str(), s.c_str());
+		config.ap_pass = s;
+		needsRestart = true;
 	}
 
 	// write to filesystem
-	write(CONFIG_FNAME, config);
+	Save(config);
 
-	server_send_result(HTML_SUCCESS);
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject& root = jsonBuffer.createObject();
+	JsonObject& response = root.createNestedObject("response");
+
+	response["response_code"] = 0;
+	response["needsRestart"] = needsRestart;
+
+	String retJson;
+	root.printTo(retJson);
+	server_send_json(retJson);
+
 	oLog.verbose("ok!\r\n");
 }
 
@@ -500,7 +541,7 @@ void setup()
 
 	// user configuration from fs
 	oLog.verbose("Loading configuration...");
-	read(CONFIG_FNAME, config);
+	Load(config);
 	oLog.verbose("ok!\r\n");
 
 	// relay
@@ -534,38 +575,9 @@ void setup()
 	// access the device by its device name on a windows network. have 
 	// to convert to a char array because our declaration is weird
 	oLog.verbose("Configuring WiFi. Hostname=%s...", config.name.c_str());
-	if (WiFi.hostname(config.name)) {
-		oLog.verbose("ok!\r\n");
-	}
-	else {
-		oLog.verbose("failed...nok!\r\n");
-	}
-
-	// initialize a WiFiManager to establish an existing WiFi connection
-	// or offer a configuration portal to the user to connect to a new
-	// network, will be garbage collected after connection
-	//WiFiManager wifiManager;
-
-	//set config save notify callback
-	//wifiManager.setSaveConfigCallback(saveConfigCallback);
-
-	//sets timeout until configuration portal gets turned off
-	//useful to make it all retry or go to sleep (seconds)
-	//wifiManager.setTimeout(WIFI_PORTAL_TIMEOUT);
-	//wifiManager.setConfigPortalTimeout(WIFI_PORTAL_TIMEOUT);
-
-	// fetches previously stored ssid and password and tries to connect
-	// if it cannot connect it starts an access point where the user
-	// can setup the WiFi AP then goes into blocking loop waiting
-	/*oLog.info("Auto Connecting to WiFi Network...\r\n");
-	if (!wifiManager.autoConnect(config.name.c_str(), NULL)) {
-		oLog.info("failed to connect to AP, restarting in 30 ...nok!\r\n");
-		delay(300000);
-		//reset and try again, or maybe put it to deep sleep
-		ESP.reset();
-		delay(500000);
-	}
-	oLog.info("ok!\r\n");*/
+	setupWiFi();
+	oLog.verbose("ok!\r\n");
+	
 
 	// register with mdns, wont need this for a while
 	oLog.info("Configuring MDNS. Hostname=%s...", config.name.c_str());
@@ -620,7 +632,7 @@ void setup()
 	oLog.info("got tstamp=%i, status=%i, value=%i...", current_log.tstamp, current_log.status, current_log.value);
 	oLog.info("ok!\r\n");
 
-	oLog.info("MyGarage has finished booting and is going into monitor mode.");
+	oLog.info("MyGarage has finished booting and is going into monitor mode.\r\n");
 
 }
 
@@ -653,6 +665,18 @@ void loop() {
 	// maintain the internal clock and periodically sync via NTP
 	time_keeping();
 
+}
+
+void setupWiFi()
+{
+	oLog.debug("Setting up WiFi...disconnecting...");
+	WiFi.softAPdisconnect();
+	WiFi.disconnect();
+	oLog.debug("setting mode...");
+	WiFi.mode(WIFI_STA);
+	delay(100);
+	WiFi.hostname(config.name);
+	oLog.debug("ok!\r\n");
 }
 
 void handleWiFi()

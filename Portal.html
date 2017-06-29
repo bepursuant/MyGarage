@@ -153,7 +153,7 @@
             $("#form-auth").on("submit", function (e) {
 
                 e.preventDefault();
-
+         
                 var form = $("#form-auth");
 
                 // send xhr request
@@ -167,13 +167,11 @@
                             alert("Please try again");
                             $("#devicekey").select();
                         }
+                        return false;
                     },
                     form.method,
                     new FormData(form)
                 );
-
-                // prevent submitting again
-                return false;
             });
 
 
@@ -189,14 +187,14 @@
                     getJSON(
                         form.action,
                         function (postConfig) {
-                            if (postConfig.result != 1) {
-                                if (postConfig.result == 2) {
-                                    alert("Check device key and try again.");
+                            if (postConfig.response_code == 0) {
+                                if (postConfig.needsRestart == true) {
+                                    alert("Configuration updated, device needs to be restarted.");
                                 } else {
-                                    alert("Error code: " + postConfig.result + ", item: " + postConfig.item);
+                                    alert("Configuration updated.");
                                 }
                             } else {
-                                alert("config are successfully saved. Note that changes to some config may require a reboot");
+                                alert("Configuration update failed. ResponseCode=" + postConfig.response_code);
                             }
                             return false;
                         },
@@ -205,10 +203,7 @@
                     );
                 }
 
-                // prevent submitting again
-                return false;
             });
-
 
         }
 
