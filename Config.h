@@ -3,7 +3,7 @@
 
 #include "FS.h"
 #include "Log.h"
-#include <ArduinoJson.h>
+#include "SerializeEeprom.h"
 
 #define DEFAULT_NAME		"MyGarage"
 #define DEFAULT_DEVICEKEY	"opendoor"
@@ -21,39 +21,39 @@
 
 class Config {
 
-	public:
-		String name = DEFAULT_NAME;
-		String devicekey = DEFAULT_DEVICEKEY;
-		int http_port = DEFAULT_HTTP_PORT;
-		bool smtp_notify_boot = DEFAULT_SMTP_NOTIFY_BOOT;
-		bool smtp_notify_status = DEFAULT_SMTP_NOTIFY_BOOT;
-		String smtp_host = DEFAULT_SMTP_HOST;
-		int smtp_port = DEFAULT_SMTP_PORT;
-		String smtp_user = DEFAULT_SMTP_USER;
-		String smtp_pass = DEFAULT_SMTP_PASS;
-		String smtp_from = DEFAULT_SMTP_FROM;
-		String smtp_to = DEFAULT_SMTP_TO;
-		String ap_ssid = DEFAULT_AP_SSID;
-		String ap_pass = DEFAULT_AP_PASS;
-
-		
+public:
+	char name[32] = DEFAULT_NAME;
+	char devicekey[255] = DEFAULT_DEVICEKEY;
+	int http_port = DEFAULT_HTTP_PORT;
+	bool smtp_notify_boot = DEFAULT_SMTP_NOTIFY_BOOT;
+	bool smtp_notify_status = DEFAULT_SMTP_NOTIFY_BOOT;
+	char smtp_host[255] = DEFAULT_SMTP_HOST;
+	int smtp_port = DEFAULT_SMTP_PORT;
+	char smtp_user[255] = DEFAULT_SMTP_USER;
+	char smtp_pass[255] = DEFAULT_SMTP_PASS;
+	char smtp_from[255] = DEFAULT_SMTP_FROM;
+	char smtp_to[255] = DEFAULT_SMTP_TO;
+	char ap_ssid[32] = DEFAULT_AP_SSID;
+	char ap_pass[255] = DEFAULT_AP_PASS;
 
 };
 
-
 // define the SAVE implementation for the above structure
-bool Save(Config &cfg, unsigned char logLevel = EEPROM_log_RW)
+bool SaveConfig(Config &cfg, unsigned char logLevel = EEPROM_log_RW)
 {
 	return eepromIf<Config>::Save(&cfg, logLevel);
 }
 
 // define the LOAD implementation for the above structure
-bool Load(Config &cfg, unsigned char logLevel = EEPROM_log_RW)
+bool LoadConfig(Config &cfg, unsigned char logLevel = EEPROM_log_RW)
 {
 	return eepromIf<Config>::Load(&cfg, logLevel);
 }
 
 template<> int eepromIf<Config>::Signature = 0x43534553;
 template<> int eepromIf<Config>::baseOffset = 0;
+
+
+
 
 #endif

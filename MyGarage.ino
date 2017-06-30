@@ -6,6 +6,7 @@
 #include "OpenGarage.h"	// DEPRECATE for controlling the garage door
 #include "Button.h"		// library for reacting to button presses
 #include "SerializeEeprom.h" // External library for saving to eeprom
+#include <string.h>
 
 Config config;
 Log oLog;
@@ -26,8 +27,9 @@ static ulong last_status_change_utc;
 
 // vars to store a utc timestamp for timekeeping
 // (or millis() for operations that take time)
-static ulong last_sync_utc;				// last synced UTC time
-static ulong last_sync_millis;			// last millis() we synced time with ntp
+static ulong last_sync_utc = 0;				// last synced UTC time
+static ulong last_sync_millis = 0;			// last millis() we synced time with ntp
+static ulong portal_enabled_utc = 0;		// when the portal was enabled
 
 // define a few helper functions below for interacting with the 
 // server object, like sending html or json response headers
@@ -123,8 +125,9 @@ bool is_authenticated() {
 
 	if (server->hasHeader("Cookie")) {
 		String cookie = server->header("Cookie");
+		String token = String("OG_TOKEN=") + String(config.devicekey);
 		oLog.debug("Authenticating using Cookie. Cookie=%s...", cookie.c_str());
-		if (cookie.indexOf("OG_TOKEN=" + config.devicekey) != -1) {
+		if (cookie.indexOf(token) != -1) {
 			oLog.debug("ok!");
 			return true;
 		}
@@ -222,11 +225,11 @@ void on_get_config() {
 	conf["smtp_host"] = config.smtp_host;
 	conf["smtp_port"] = config.smtp_port;
 	conf["smtp_user"] = config.smtp_user;
-	// smtp_pass is read only
+	// smtp_pass is protected
 	conf["smtp_from"] = config.smtp_from;
 	conf["smtp_to"] = config.smtp_to;
 	conf["ap_ssid"] = config.ap_ssid;
-	// ap_pass is readonly
+	// ap_pass is protected
 
 	String retJson;
 	root.printTo(retJson);
@@ -242,92 +245,100 @@ void on_post_config() {
 	String s;
 	bool needsRestart = false;
 
-	if (server->hasArg("name") && (s = server->arg("name")) && (s != config.name)) {
-		oLog.debug("Config value updated. Name=name, OldValue=%s, NewValue=%s.", config.name.c_str(), s.c_str());
-		config.name = s;
+	if (server->hasArg("name")) {
+		oLog.debug("Config value updated. Name=name, OldValue=%s, ", config.name);
+		strcpy(config.name,server->arg("name").c_str());
+		oLog.debug("NewValue=%s.\r\n", config.name);
 		needsRestart = true;
 	}
 
-	if (server->hasArg("devicekey") && (s = server->arg("devicekey")) && (s != config.devicekey)) {
-		oLog.debug("Config value updated. Name=devicekey, OldValue=***, NewValue=***.");
-		config.devicekey = s;
+	if (server->hasArg("devicekey")) {
+		oLog.debug("Config value updated. Name=devicekey, OldValue=***, NewValue=***.\r\n");
+		strcpy(config.devicekey, server->arg("devicekey").c_str());
 		needsRestart = true;
 	}
 
-	if (server->hasArg("http_port") && (i = server->arg("http_port").toInt()) && (i != config.http_port)) {
-		oLog.debug("Config value updated. Name=http_port, OldValue=%i NewValue=%i.", config.http_port, i);
+	if (server->hasArg("http_port") && (i = server->arg("http_port").toInt())) {
+		oLog.debug("Config value updated. Name=http_port, OldValue=%i, NewValue=%i.\r\n", config.http_port, i);
 		config.http_port = i;
 		needsRestart = true;
 	}
 
 	if (server->hasArg("smtp_notify_boot") && (config.smtp_notify_boot != true)) {
-		oLog.debug("Config value updated. Name=smtp_notify_boot, OldValue=false, NewValue=true.");
+		oLog.debug("Config value updated. Name=smtp_notify_boot, OldValue=false, NewValue=true.\r\n");
 		config.smtp_notify_boot = true;
 	}
 	else {
-		oLog.debug("Config value updated. Name=smtp_notify_boot, OldValue=true, NewValue=false.");
+		oLog.debug("Config value updated. Name=smtp_notify_boot, OldValue=true, NewValue=false.\r\n");
 		config.smtp_notify_boot = false;
 	}
 
 	if (server->hasArg("smtp_notify_status")) {
-		oLog.debug("Config value updated. Name=smtp_notify_status, OldValue=false, NewValue=true.");
+		oLog.debug("Config value updated. Name=smtp_notify_status, OldValue=false, NewValue=true.\r\n");
 		config.smtp_notify_status = true;
 	}
 	else {
-		oLog.debug("Config value updated. Name=smtp_notify_status, OldValue=true, NewValue=false.");
+		oLog.debug("Config value updated. Name=smtp_notify_status, OldValue=true, NewValue=false.\r\n");
 		config.smtp_notify_status = false;
 	}
 
-	if (server->hasArg("smtp_host") && (s = server->arg("smtp_host")) && (config.smtp_host != s)) {
-		oLog.debug("Config value updated. Name=smtp_host, OldValue=%s, NewValue=%s.", config.smtp_host.c_str(), s.c_str());
-		config.smtp_host = s;
+	if (server->hasArg("smtp_host")) {
+		oLog.debug("Config value updated. Name=smtp_host, OldValue=%s, ", config.smtp_host);
+		strcpy(config.smtp_host, server->arg("smtp_host").c_str());
+		oLog.debug("NewValue=%s.\r\n", config.smtp_host);
 		needsRestart = true;
 	}
 
-	if (server->hasArg("smtp_port") && (i = server->arg("smtp_port").toInt()) && (config.smtp_port != i)) {
-		oLog.debug("Config value updated. Name=smtp_port, OldValue=%i, NewValue=%i.", config.smtp_port, i);
+	if (server->hasArg("smtp_port") && (i = server->arg("smtp_port").toInt())) {
+		oLog.debug("Config value updated. Name=smtp_port, OldValue=%i, NewValue=%i.\r\n", config.smtp_port, i);
 		config.smtp_port = i;
 		needsRestart = true;
 	}
 
-	if (server->hasArg("smtp_user") && (s = server->arg("smtp_user")) && (config.smtp_user != s)) {
-		oLog.debug("Config value updated. Name=smtp_user, OldValue=%s, NewValue=%s.", config.smtp_user.c_str(), s.c_str());
-		config.smtp_user = s;
+	if (server->hasArg("smtp_user")) {
+		oLog.debug("Config value updated. Name=smtp_user, OldValue=%s,", config.smtp_user);
+		strcpy(config.smtp_user, server->arg("smtp_user").c_str());
+		oLog.debug("NewValue=%s.\r\n", config.smtp_user);
 		needsRestart = true;
 	}
 
-	if (server->hasArg("smtp_pass") && (s = server->arg("smtp_pass")) && (config.smtp_pass != s)) {
-		oLog.debug("Config value updated. Name=smtp_pass, OldValue=%s, NewValue=%s.", config.smtp_pass.c_str(), s.c_str());
-		config.smtp_pass = s;
+	if (server->hasArg("smtp_pass")) {
+		oLog.debug("Config value updated. Name=smtp_pass, OldValue=%s, ", config.smtp_pass);
+		strcpy(config.smtp_pass, server->arg("smtp_pass").c_str());
+		oLog.debug("NewValue=%s.\r\n", config.smtp_pass);
 		needsRestart = true;
 	}
 
-	if (server->hasArg("smtp_from") && (s = server->arg("smtp_from")) && (config.smtp_from != s)) {
-		oLog.debug("Config value updated. Name=smtp_from, OldValue=%s, NewValue=%s.", config.smtp_from.c_str(), s.c_str());
-		config.smtp_from = s;
+	if (server->hasArg("smtp_from")) {
+		oLog.debug("Config value updated. Name=smtp_from, OldValue=%s, ", config.smtp_from);
+		strcpy(config.smtp_from, server->arg("smtp_from").c_str());
+		oLog.debug("NewValue=%s.\r\n", config.smtp_from);
 		needsRestart = true;
 	}
 
-	if (server->hasArg("smtp_to") && (s = server->arg("smtp_to")) && (config.smtp_to != s)) {
-		oLog.debug("Config value updated. Name=smtp_to, OldValue=%s, NewValue=%s.", config.smtp_to.c_str(), s.c_str());
-		config.smtp_to = s;
+	if (server->hasArg("smtp_to")) {
+		oLog.debug("Config value updated. Name=smtp_to, OldValue=%s, ", config.smtp_to);
+		strcpy(config.smtp_to, server->arg("smtp_to").c_str());
+		oLog.debug("NewValue=%s.\r\n", config.smtp_to);
 		needsRestart = true;
 	}
 
-	if (server->hasArg("ap_ssid") && (s = server->arg("ap_ssid")) && (config.ap_ssid != s)) {
-		oLog.debug("Config value updated. Name=ap_ssid, OldValue=%s, NewValue=%s.", config.ap_ssid.c_str(), s.c_str());
-		config.ap_ssid = s;
+	if (server->hasArg("ap_ssid")) {
+		oLog.debug("Config value updated. Name=ap_ssid, OldValue=%s, ", config.ap_ssid);
+		strcpy(config.ap_ssid, server->arg("ap_ssid").c_str());
+		oLog.debug("NewValue=%s.\r\n", config.ap_ssid);
 		needsRestart = true;
 	}
 
-	if (server->hasArg("ap_pass") && (s = server->arg("ap_pass")) && (config.ap_pass != s)) {
-		oLog.debug("Config value updated. Name=ap_pass, OldValue=%s, NewValue=%s.", config.ap_pass.c_str(), s.c_str());
-		config.ap_pass = s;
+	if (server->hasArg("ap_pass")) {
+		oLog.debug("Config value updated. Name=ap_pass, OldValue=%s, ", config.ap_pass);
+		strcpy(config.ap_pass, server->arg("ap_pass").c_str());
+		oLog.debug("NewValue=%s.\r\n", config.ap_pass);
 		needsRestart = true;
 	}
 
 	// write to filesystem
-	Save(config);
+	SaveConfig(config);
 
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
@@ -480,7 +491,8 @@ void onDoorSensorStatusChange() {
 
 	// module : email alerts
 	if (config.smtp_notify_status) {
-		String message = config.name + " " + (door_status == DOOR_STATUS_OPEN ? "OPENED" : "CLOSED") + " at " + String(last_status_change_utc);
+		char* message;
+		sprintf(message, "%s %s at %i", config.name, (door_status == DOOR_STATUS_OPEN ? "OPENED" : "CLOSED"), last_status_change_utc);
 		mail.send(config.smtp_from, config.smtp_to, "Door status changed!", message);
 	}
 
@@ -492,36 +504,46 @@ void onDoorSensorStatusChange() {
 * will reset the entire device to factory settings and reboot
 **/
 void configHoldHandler(Button& b) {
-	oLog.error("Reset button held, resetting to factory defaults...");
+	oLog.info("Reset button held, resetting to factory defaults...");
 
-	// clear the wifi configuration, delegated to the wifimanager. We must initialize a
-	// new wifimanager object here as the original was already garbage collected
-	oLog.error("reset wifi config...");
-	//WiFiManager wifiManager;
-	//wifiManager.resetSettings();
+	// clear the log files
+	oLog.info("formatting file system...");
+	SPIFFS.format();
 
-	// clear the FS which includes the config and oLog files
-	oLog.error("formatting file system...");
-	//SPIFFS.format();
+	oLog.info("erasing eeprom...");
+	// no eeprom clear method!
 
-	oLog.error("ok!\r\n");
+	oLog.info("ok!\r\n");
 
 	// restart the ESP to establish a fresh state
 	oLog.info("ESP was reset and will now be rebooted...\r\n");
-	//ESP.reset();
+	ESP.reset();
 }
 
-
-void configPressHandler(Button& b) {
-	oLog.error("Config button pressed, enabling configuration portal...");
-
-	if (WiFi.softAP(config.name.c_str(), config.devicekey.c_str())) {
-		oLog.info("Configuration portal enabled by button press...ok!\r\n");
+void openConfigPortal(int timeout = WIFI_PORTAL_TIMEOUT) {
+	oLog.info("Opening WiFi Hotspot. Timeout=%is", timeout);
+	if (WiFi.softAP(config.name, config.devicekey)) {
+		portal_enabled_utc = get_utc_time();
+		oLog.info("ok!\r\n");
 	}
 	else {
 		oLog.error("Could not open configuration portal as soft ap...nok!\r\n");
 	}
 }
+
+void closeConfigPortal() {
+	oLog.info("Closing WiFi HotSpot...");
+	WiFi.softAPdisconnect();
+	portal_enabled_utc = 0;
+	oLog.info("ok!\r\n");
+}
+
+void configPressHandler(Button& b) {
+	oLog.info("Config button pressed, enabling configuration portal...");
+	openConfigPortal();
+	oLog.info("ok!\r\n");
+}
+
 
 
 
@@ -541,7 +563,7 @@ void setup()
 
 	// user configuration from fs
 	oLog.verbose("Loading configuration...");
-	Load(config);
+	LoadConfig(config);
 	oLog.verbose("ok!\r\n");
 
 	// relay
@@ -574,14 +596,14 @@ void setup()
 	// setup DHCP hostname, hopefully this works and will allow us to
 	// access the device by its device name on a windows network. have 
 	// to convert to a char array because our declaration is weird
-	oLog.verbose("Configuring WiFi. Hostname=%s...", config.name.c_str());
+	oLog.verbose("Configuring WiFi. Hostname=%s...", config.name);
 	setupWiFi();
 	oLog.verbose("ok!\r\n");
 	
 
 	// register with mdns, wont need this for a while
-	oLog.info("Configuring MDNS. Hostname=%s...", config.name.c_str());
-	if (MDNS.begin(config.name.c_str())) {
+	oLog.info("Configuring MDNS. Hostname=%s...", config.name);
+	if (MDNS.begin(config.name)) {
 		MDNS.addService("http", "tcp", 80);
 		oLog.info("ok!\r\n");
 	}
@@ -618,7 +640,7 @@ void setup()
 	oLog.info("ok!\r\n");
 
 	// configure the SMTP mailer
-	oLog.info("Configuring mailer. Host=%s:%i, User=%s", config.smtp_host.c_str(), config.smtp_port, config.smtp_user.c_str());
+	oLog.info("Configuring mailer. Host=%s:%i, User=%s", config.smtp_host, config.smtp_port, config.smtp_user);
 	mail.init(config.smtp_host, config.smtp_port, config.smtp_user, config.smtp_pass);
 	oLog.info("ok!\r\n");
 
@@ -649,8 +671,8 @@ void closedReleaseHandler(Button &btn)
 }
 
 // The main processing loop for the application. While the
-// device is powered this function will loop infinitely
-// and allow us to handle processing and UI function
+// device is powered this function will loop indefinitely
+// and allow us to handle processing and UI functions
 void loop() {
 
 	// handle human interfaces
@@ -661,6 +683,11 @@ void loop() {
 	server->handleClient();
 
 	handleWiFi();
+
+	// hotspot portal timeout
+	if (portal_enabled_utc > 0 && get_utc_time() > portal_enabled_utc + WIFI_PORTAL_TIMEOUT) {
+		closeConfigPortal();
+	}
 
 	// maintain the internal clock and periodically sync via NTP
 	time_keeping();

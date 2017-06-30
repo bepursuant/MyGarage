@@ -30,7 +30,7 @@
 #define LOGLEVEL LOGLEVEL_VERBOSE
 
 #define MAX_LOG_RECORDS    100
-#define WIFI_PORTAL_TIMEOUT 120
+#define WIFI_PORTAL_TIMEOUT 20
 
 // door status histogram
 // number of values (maximum is 8)

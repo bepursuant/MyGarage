@@ -100,7 +100,6 @@
     <ClInclude Include="OpenGarage.h" />
     <ClInclude Include="Mail.h" />
     <ClInclude Include="SerializeEeprom.h" />
-    <ClInclude Include="__vm\.MyGarage.vsarduino.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Button.cpp" />

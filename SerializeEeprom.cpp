@@ -23,6 +23,7 @@ The Arduino and Genuino 101 boards have an emulated EEPROM space of 1024 bytes.
 4096 bytes on the ATmega1280 and ATmega2560
 4096 bytes on ESP8266
 */
+#define ESP8266 TRUE
 
 #if defined ESP8266
 #define SPI_FLASH_SEC_SIZE 4096 // ESP8266
@@ -30,7 +31,7 @@ The Arduino and Genuino 101 boards have an emulated EEPROM space of 1024 bytes.
 #error "Unknown EEPROM size for this micro"
 #endif
 
-#define EEPROM_MAX_USED_SIZE 1024
+#define EEPROM_MAX_USED_SIZE 4096
 
 #if EEPROM_MAX_USED_SIZE > SPI_FLASH_SEC_SIZE
 #error "EEPROM size exceeded"
