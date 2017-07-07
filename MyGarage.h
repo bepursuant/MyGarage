@@ -17,7 +17,8 @@
 #define FIRMWARE_VERSION    202  // Firmware version: 100 means 1.0.0
 
 // gpio pins (avoid D3,4,and8)
-#define PIN_CONFIG D2
+#define PIN_BTN1 D2
+#define PIN_BTN2 D1
 #define PIN_RELAY  D5
 #define PIN_LED    D6
 #define PIN_CLOSED D7
@@ -30,7 +31,7 @@
 #define LOGLEVEL LOGLEVEL_VERBOSE
 
 #define MAX_LOG_RECORDS    100
-#define WIFI_PORTAL_TIMEOUT 20
+#define WIFI_PORTAL_TIMEOUT 300
 
 // door status histogram
 // number of values (maximum is 8)
@@ -52,7 +53,7 @@
 #define HTML_REDIRECT_HOME     0xFF
 
 
-#define BUTTON_CONFIG_HOLDTIME  15000  // if button is pressed for 15 seconds, reset
+#define BTN1_HOLDTIME  15000  // if button is pressed for 15 seconds, reset
 #define TIME_SYNC_TIMEOUT  3600
 
 typedef unsigned char byte;

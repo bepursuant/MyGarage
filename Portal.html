@@ -23,6 +23,8 @@
             <a href="#auth">Authenticate</a>
             <a href="#status">Current Status</a>
             <a href="#config">Configuration</a>
+            <a id="wifi-status">No Connection</a>
+
         </div>
     </nav>
 
@@ -30,13 +32,9 @@
     <div class="container" id="tab-auth">
         <h2>Authenticate</h2>
         <form id="form-auth" action="/auth" method="POST" class="form">
-            <fieldset>
-                <legend>Authenticate with Device Key</legend>
-                <label for="devicekey">Device Key:</label>
-                <input type="password" name="devicekey" id="devicekey" />
-
-                <input type="submit" value="Authenticate" class="btn btn-b btn-sm" />
-            </fieldset>
+            <label for="devicekey">Device Key</label>
+            <input type="password" name="devicekey" id="devicekey" />
+            <input type="submit" value="Authenticate" class="btn btn-b btn-sm" />
         </form>
     </div>
 
@@ -71,8 +69,8 @@
 
             <h3>WiFi Settings</h3>
 
-            <label for="ap_ssid">Network Name</label>
-            <input type="text" id="ap_ssid" name="ap_ssid" />
+            <label for="ap_ssid">Network Name (<a href="" id="refresh-networks">re-scan</a>)</label>
+            <select id="ap_ssid" name="ap_ssid"></select>
 
             <label for="ap_pass">Network Password</label>
             <input type="text" id="ap_pass" name="ap_pass" />
@@ -142,11 +140,16 @@
 
             // load initial values
             refresh_status();
+            refresh_networks();
             refresh_configuration();
 
             // handle a button-action click event
             $("#button-action").on("click", function (e) {
                 onActionClick();
+            });
+
+            $("#refresh-networks").on("clock", function (e) {
+                refresh_networks();
             });
 
             // intercept auth form submission
@@ -231,6 +234,7 @@
                 var status = jsonStatus.status;
 
                 $(".lbl_status").innerHTML = (status.door_status == 1 ? "OPEN" : "CLOSED");
+                $(".lbl_wifi_status").innerHTML = status.wifi_status;
                 $("#button-action").innerHTML = (status.door_status == 1 ? "Close Door" : "Open Door");
 
                 // convert timestamp into a Date object, then convert to human readable string
@@ -261,7 +265,6 @@
          * Request the current configuration from the device and update the config form
          */
         function refresh_configuration() {
-
             // request the configuration
             getJSON("/json/config", function (jsonConfig) {
                 var config = jsonConfig.config;
@@ -279,6 +282,18 @@
                 $("#smtp_user").value = config.smtp_user;
                 $("#smtp_from").value = config.smtp_from;
                 $("#smtp_to").value = config.smtp_to;
+                $("#ap_ssid").value = config.ap_ssid;
+            });
+        }
+
+        function refresh_networks() {
+            getJSON("/json/networks", function (jsonNetworks) {
+                var networks = jsonNetworks.networks;
+                var r = "";
+                for (var i = 0; i < networks.length; i++) {
+                    r += "<option value=\"" + networks[i]["ssid"] +"\">" + networks[i]["ssid"] + "</option>";
+                }
+                $("#ap_ssid").innerHTML = r;
             });
         }
 

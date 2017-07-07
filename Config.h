@@ -50,7 +50,7 @@ bool LoadConfig(Config &cfg, unsigned char logLevel = EEPROM_log_RW)
 	return eepromIf<Config>::Load(&cfg, logLevel);
 }
 
-template<> int eepromIf<Config>::Signature = 0x43534553;
+template<> int eepromIf<Config>::Signature = 0x43534555;
 template<> int eepromIf<Config>::baseOffset = 0;
 
 

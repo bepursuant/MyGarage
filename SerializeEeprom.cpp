@@ -64,7 +64,7 @@ bool serialize2eeprom::Save(unsigned char logLevel, int dataSignature, int baseO
 
   // check if out of EEPROM space
   if (pos > EEPROM_MAX_USED_SIZE)
-    Serial.println(F("ERROR: Save() out of EEPROM space, increase EEPROM_MAX_USED_SIZE (max SPI_FLASH_SEC_SIZE) !"));
+    Serial.print(F("ERROR: Save() out of EEPROM space, increase EEPROM_MAX_USED_SIZE (max SPI_FLASH_SEC_SIZE) !"));
 
   if(logLevel > 1)
   {
@@ -74,11 +74,11 @@ bool serialize2eeprom::Save(unsigned char logLevel, int dataSignature, int baseO
     Serial.print(pos);
     Serial.print(F(" / "));
     Serial.print(EEPROM_MAX_USED_SIZE);
-    Serial.println(F(" bytes."));
+    Serial.print(F(" bytes."));
   }
   Serial.print(F("EEPROM Save(): written cfg '"));
   Serial.write(dataSignature >> 24); Serial.write((dataSignature >> 16) & 255); Serial.write((dataSignature >> 8) & 255); Serial.write(dataSignature & 255);
-  Serial.print(F("', offsets: [")); Serial.print(baseOffset); Serial.print(", "); Serial.print(pos); Serial.println("[");
+  Serial.print(F("', offsets: [")); Serial.print(baseOffset); Serial.print(", "); Serial.print(pos); Serial.print("]");
 
   //EEPROM.commit(); // phisically write to EEPROM
   EEPROM.end();    // phisically write to EEPROM + release EEPROM buffer
@@ -106,7 +106,7 @@ bool serialize2eeprom::Load(unsigned char logLevel, int dataSignature, int baseO
     {
       Serial.print(F("EEPROM Load(): invalid cfg '"));
       Serial.write(dataSignature >> 24); Serial.write((dataSignature >> 16) & 255); Serial.write((dataSignature >> 8) & 255); Serial.write(dataSignature & 255);
-      Serial.print(F("', offsets: [")); Serial.print(baseOffset); Serial.print(", "); Serial.print(pos); Serial.println("[");
+      Serial.print(F("', offsets: [")); Serial.print(baseOffset); Serial.print(", "); Serial.print(pos); Serial.print("]");
     }
     return false;
   }
@@ -125,10 +125,10 @@ bool serialize2eeprom::Load(unsigned char logLevel, int dataSignature, int baseO
     {
       Serial.print(F("EEPROM Load(): recovered cfg '"));
       Serial.write(dataSignature >> 24); Serial.write((dataSignature >> 16) & 255); Serial.write((dataSignature >> 8) & 255); Serial.write(dataSignature & 255);
-      Serial.print(F("', offsets: [")); Serial.print(baseOffset); Serial.print(", "); Serial.print(pos); Serial.println("[");
+      Serial.print(F("', offsets: [")); Serial.print(baseOffset); Serial.print(", "); Serial.print(pos); Serial.print("]");
     }
     else
-      Serial.println(F("EEPROM Load(): invalid checksum"));
+      Serial.print(F("EEPROM Load(): invalid checksum"));
   }
   EEPROM.end(); // dealloc
 

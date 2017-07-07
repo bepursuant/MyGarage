@@ -4,7 +4,7 @@ const char assets_portal[] PROGMEM = R"=====(﻿<!DOCTYPE html>
 <meta charset="utf-8" />
 <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-<title class="lbl_name">MyGarage</title>
+<title class="lbl_name">Node Portal</title>
 <script type="text/javascript">
 /* remey/minjs */$ = function (t, n, e) { var i = Node.prototype, r = NodeList.prototype, o = "forEach", u = "trigger", c = [][o], s = t.createElement("i"); return r[o] = c, n.on = i.on = function (t, n) { return this.addEventListener(t, n, !1), this }, r.on = function (t, n) { return this[o](function (e) { e.on(t, n) }), this }, n[u] = i[u] = function (n, e) { var i = t.createEvent("HTMLEvents"); return i.initEvent(n, !0, !0), i.data = e || {}, i.eventName = n, i.target = this, this.dispatchEvent(i), this }, r[u] = function (t) { return this[o](function (n) { n[u](t) }), this }, e = function (n) { var e = t.querySelectorAll(n || "☺"), i = e.length; return 1 == i ? e[0] : e }, e.on = i.on.bind(s), e[u] = i[u].bind(s), e }(document, this);
 </script>
@@ -18,11 +18,13 @@ const char assets_portal[] PROGMEM = R"=====(﻿<!DOCTYPE html>
 <nav class="nav">
 <div class="container">
 <a class="pagename active" href="/">
-<b class="lbl_name">MyGarage</b>
+<b class="lbl_name">Node Portal</b>
 </a>
 <a href="#auth">Authenticate</a>
 <a href="#status">Current Status</a>
 <a href="#config">Configuration</a>
+<a id="wifi-status">No Connection</a>
+
 </div>
 </nav>
 
@@ -30,13 +32,9 @@ const char assets_portal[] PROGMEM = R"=====(﻿<!DOCTYPE html>
 <div class="container" id="tab-auth">
 <h2>Authenticate</h2>
 <form id="form-auth" action="/auth" method="POST" class="form">
-<fieldset>
-<legend>Authenticate with Device Key</legend>
-<label for="devicekey">Device Key:</label>
+<label for="devicekey">Device Key</label>
 <input type="password" name="devicekey" id="devicekey" />
-
 <input type="submit" value="Authenticate" class="btn btn-b btn-sm" />
-</fieldset>
 </form>
 </div>
 
@@ -71,8 +69,8 @@ const char assets_portal[] PROGMEM = R"=====(﻿<!DOCTYPE html>
 
 <h3>WiFi Settings</h3>
 
-<label for="ap_ssid">Network Name</label>
-<input type="text" id="ap_ssid" name="ap_ssid" />
+<label for="ap_ssid">Network Name (<a href="" id="refresh-networks">re-scan</a>)</label>
+<select id="ap_ssid" name="ap_ssid"></select>
 
 <label for="ap_pass">Network Password</label>
 <input type="text" id="ap_pass" name="ap_pass" />
@@ -142,11 +140,16 @@ alert('login first');
 
 // load initial values
 refresh_status();
+refresh_networks();
 refresh_configuration();
 
 // handle a button-action click event
 $("#button-action").on("click", function (e) {
 onActionClick();
+});
+
+$("#refresh-networks").on("clock", function (e) {
+refresh_networks();
 });
 
 // intercept auth form submission
@@ -205,7 +208,6 @@ new FormData(form)
 
 });
 
-
 }
 
 /**
@@ -232,6 +234,7 @@ getJSON("/json/status", function (jsonStatus) {
 var status = jsonStatus.status;
 
 $(".lbl_status").innerHTML = (status.door_status == 1 ? "OPEN" : "CLOSED");
+$(".lbl_wifi_status").innerHTML = status.wifi_status;
 $("#button-action").innerHTML = (status.door_status == 1 ? "Close Door" : "Open Door");
 
 // convert timestamp into a Date object, then convert to human readable string
@@ -262,7 +265,6 @@ $("#door-history").innerHTML += r;
 * Request the current configuration from the device and update the config form
 */
 function refresh_configuration() {
-
 // request the configuration
 getJSON("/json/config", function (jsonConfig) {
 var config = jsonConfig.config;
@@ -280,6 +282,18 @@ $("#smtp_port").value = config.smtp_port;
 $("#smtp_user").value = config.smtp_user;
 $("#smtp_from").value = config.smtp_from;
 $("#smtp_to").value = config.smtp_to;
+$("#ap_ssid").value = config.ap_ssid;
+});
+}
+
+function refresh_networks() {
+getJSON("/json/networks", function (jsonNetworks) {
+var networks = jsonNetworks.networks;
+var r = "";
+for (var i = 0; i < networks.length; i++) {
+r += "<option value=\"" + networks[i]["ssid"] +"\">" + networks[i]["ssid"] + "</option>";
+}
+$("#ap_ssid").innerHTML = r;
 });
 }
 

@@ -49,7 +49,7 @@ public:
 	static bool read_log_end();
 
 	static uint read_distance(); // centimeter
-	static byte get_button() { return digitalRead(PIN_CONFIG); }
+	static byte get_button() { return digitalRead(PIN_BTN1); }
 	static byte get_led() { return digitalRead(PIN_LED); }
 
 	static void set_led(byte status) { digitalWrite(PIN_LED, status); }
