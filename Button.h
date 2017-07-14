@@ -22,6 +22,8 @@
 #define BUTTON_PULLUP_INTERNAL INPUT_PULLUP
 #define BUTTON_PULLDOWN LOW
 
+#define BUTTON_DEBOUNCE_MS 50
+
 class Button;
 typedef void(*buttonEventHandler)(Button&);
 

@@ -70,7 +70,9 @@
             <h3>WiFi Settings</h3>
 
             <label for="ap_ssid">Network Name (<a href="" id="refresh-networks">re-scan</a>)</label>
-            <select id="ap_ssid" name="ap_ssid"></select>
+            <select id="ap_ssid" name="ap_ssid">
+                <option value="">Select a Network...</option>
+            </select>
 
             <label for="ap_pass">Network Password</label>
             <input type="text" id="ap_pass" name="ap_pass" />
@@ -130,6 +132,17 @@
     <!-- SPA SCRIPTS -->
     <script>
 
+        var WIFI_STATES = {
+            WL_NO_SHIELD: 255,   // for compatibility with WiFi Shield library
+            WL_IDLE_STATUS: 0,
+            WL_NO_SSID_AVAIL: 1,
+            WL_SCAN_COMPLETED: 2,
+            WL_CONNECTED: 3,
+            WL_CONNECT_FAILED: 4,
+            WL_CONNECTION_LOST: 5,
+            WL_DISCONNECTED: 6
+        };
+
         function onBodyLoad() {
 
             // show login dialog if no token cookie has been obtained
@@ -148,7 +161,7 @@
                 onActionClick();
             });
 
-            $("#refresh-networks").on("clock", function (e) {
+            $("#refresh-networks").on("click", function (e) {
                 refresh_networks();
             });
 
@@ -160,21 +173,16 @@
                 var form = $("#form-auth");
 
                 // send xhr request
-                getJSON(
-                    form.action,
-                    function (postAuth) {
-                        if (postAuth.result == "AUTH_SUCCESS") {
-                            setCookie("OG_TOKEN", postAuth.token, 0);
-                            $("#login-modal").modal("hide");
-                        } else {
-                            alert("Please try again");
-                            $("#devicekey").select();
-                        }
-                        return false;
-                    },
-                    form.method,
-                    new FormData(form)
-                );
+                postJSON(form, function (postAuth) {
+                    if (postAuth.result == "AUTH_SUCCESS") {
+                        setCookie("OG_TOKEN", postAuth.token, 0);
+                        $("#login-modal").modal("hide");
+                    } else {
+                        alert("Please try again");
+                        $("#devicekey").select();
+                    }
+                    return false;
+                });
             });
 
 
@@ -187,23 +195,18 @@
 
                 if (confirm("Submit changes?")) {
                     // send xhr request
-                    getJSON(
-                        form.action,
-                        function (postConfig) {
-                            if (postConfig.response_code == 0) {
-                                if (postConfig.needsRestart == true) {
-                                    alert("Configuration updated, device needs to be restarted.");
-                                } else {
-                                    alert("Configuration updated.");
-                                }
+                    postJSON(form, function (postConfig) {
+                        if (postConfig.response_code == 0) {
+                            if (postConfig.needsRestart == true) {
+                                alert("Configuration updated, device needs to be restarted.");
                             } else {
-                                alert("Configuration update failed. ResponseCode=" + postConfig.response_code);
+                                alert("Configuration updated.");
                             }
-                            return false;
-                        },
-                        form.method,
-                        new FormData(form)
-                    );
+                        } else {
+                            alert("Configuration update failed. ResponseCode=" + postConfig.response_code);
+                        }
+                        return false;
+                    });
                 }
 
             });
@@ -234,7 +237,18 @@
                 var status = jsonStatus.status;
 
                 $(".lbl_status").innerHTML = (status.door_status == 1 ? "OPEN" : "CLOSED");
-                $(".lbl_wifi_status").innerHTML = status.wifi_status;
+
+                // indicate the wifi connection status
+                switch (status.wifi_status) {
+                    case WIFI_STATES.WL_CONNECTED:
+                        $("#wifi-status").innerHTML = "Connected to Access Point";
+                        break;
+                    case WIFI_STATES.WL_DISCONNECTED:
+                        $("#wifi-status").innerHTML = "Not Connected!";
+                        break;
+
+                }
+                // status.wifi_rssi
                 $("#button-action").innerHTML = (status.door_status == 1 ? "Close Door" : "Open Door");
 
                 // convert timestamp into a Date object, then convert to human readable string
@@ -275,8 +289,8 @@
                 // update form fields manually - there may be a better way
                 $("#name").value = config.name;
                 $("#http_port").value = config.http_port;
-                $("#smtp_notify_boot").checked = config.smtp_notify_boot;
-                $("#smtp_notify_status").checked = config.smtp_notify_status;
+                $("#smtp_notify_boot").checked = config.smtp_notify_boot ? "CHECKED" : "";
+                $("#smtp_notify_status").checked = config.smtp_notify_status ? "CHECKED" : "";
                 $("#smtp_host").value = config.smtp_host;
                 $("#smtp_port").value = config.smtp_port;
                 $("#smtp_user").value = config.smtp_user;
@@ -315,7 +329,7 @@
         }
 
         // super simple json function
-        function getJSON(url, callback=false, method="GET", data="") {
+        function getJSON(url, callback = false, method = "GET", data = "") {
             callback = callback || function () { };
             var xhr = new XMLHttpRequest();
             xhr.onreadystatechange = function () {
@@ -325,6 +339,15 @@
             };
             xhr.open(method, url, true);
             xhr.send(data);
+        }
+
+        function postJSON(form, callback = false) {
+            getJSON(
+                form.action,
+                callback,
+                form.method,
+                new FormData(form)
+            );
         }
     </script>
 </body>
