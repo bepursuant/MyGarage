@@ -131,6 +131,9 @@ ulong get_utc_time() {
 	return last_sync_utc + (millis() - last_sync_millis) / 1000;
 }
 
+
+// Reset the device to factory condition by erasing the logs, configuration,
+// and connection information and finally rebooting.
 void factory_reset() {
 	oLog.info("Resetting to factory defaults...");
 
@@ -138,8 +141,8 @@ void factory_reset() {
 	oLog.info("formatting file system...");
 	SPIFFS.format();
 
-	oLog.info("erasing eeprom...");
-	// no eeprom clear method!
+	//oLog.info("erasing eeprom...");
+	// no eeprom clear method! configuration is invalidated by different version checksums instead
 
 	oLog.info("ok!\r\n");
 
@@ -631,8 +634,8 @@ void init_leds() {
 	FastLED.addLeds<NEOPIXEL, PIN_LEDS>(leds, NUM_LEDS);
 	FastLED.setBrightness(24);
 
-	leds[LED1] = CRGB::Red;
-	leds[LED2] = CRGB::Blue;
+	leds[LED1] = CRGB::Yellow;
+	leds[LED2] = CRGB::Yellow;
 
 	FastLED.show();
 
@@ -651,9 +654,8 @@ void init_ui() {
 	sensor1.pressHandler(on_sensor1_press);
 	sensor1.releaseHandler(on_sensor1_release);
 
-	//sensor2 = Button(PIN_SENSOR2, BUTTON_PULLUP_INTERNAL);
-	//sensor2.pressHandler(on_sensor2_press);
-	//sensor2.releaseHandler(on_sensor2_release);
+	sensor2.pressHandler(on_sensor2_press);
+	sensor2.releaseHandler(on_sensor2_release);
 
 	oLog.verbose("ok!\r\n");
 }
@@ -766,6 +768,17 @@ void on_sensor1_release(Button &btn) {
 	leds[LED1] = CRGB::Red;
 	on_door_status_change(1, DOOR_STATUS_OPEN);
 }
+
+void on_sensor2_press(Button &btn) {
+	leds[LED2] = CRGB::Green;
+	on_door_status_change(2, DOOR_STATUS_CLOSED);
+}
+
+void on_sensor2_release(Button &btn) {
+	leds[LED2] = CRGB::Red;
+	on_door_status_change(2, DOOR_STATUS_OPEN);
+}
+
 
 
 // Setup and Loop Methods

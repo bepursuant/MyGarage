@@ -22,11 +22,9 @@
 
 // gpio pins (avoid D3,4,and8)
 #define PIN_LEDS D4
-#define NUM_LEDS 3
-
+#define NUM_LEDS 2
 #define LED1 0
-#define LED2 2
-#define LED3 1
+#define LED2 1
 
 #define PIN_BTN1 D1
 #define PIN_BTN2 D2
@@ -34,20 +32,14 @@
 #define PIN_SENSOR1 D5
 #define PIN_SENSOR2 D6
 
-#define PIN_RELAY1  D7
+#define PIN_RELAY1 D7
 #define PIN_RELAY2 D8
-
-
-
-
-// Config file name
-#define CONFIG_FNAME    "/config.dat"
 
 // Log file name
 #define LOG_FNAME       "/log.dat"
 #define LOGLEVEL LOGLEVEL_VERBOSE
 
-#define MAX_LOG_RECORDS    100
+#define MAX_LOG_RECORDS     100
 #define WIFI_PORTAL_TIMEOUT 300
 
 // door status histogram
