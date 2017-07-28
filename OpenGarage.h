@@ -39,8 +39,6 @@ class OpenGarage {
 public:
 	static uint current_log_id;
 
-	static void begin();
-
 	static void log_reset();
 	static void write_log(const LogStruct& data);
 	static bool read_log_start();
@@ -48,26 +46,11 @@ public:
 	static bool read_log_next(LogStruct& data);
 	static bool read_log_end();
 
-	static uint read_distance(); // centimeter
-	static byte get_button() { return digitalRead(PIN_CONFIG); }
-	static byte get_led() { return digitalRead(PIN_LED); }
 
-	static void set_led(byte status) { digitalWrite(PIN_LED, status); }
-	static void set_relay(byte status) { digitalWrite(PIN_RELAY, status); }
-	static void click_relay(uint ms = 1000) {
-		digitalWrite(PIN_RELAY, HIGH);
-		delay(ms);
-		digitalWrite(PIN_RELAY, LOW);
-	}
-	static bool open();
-	static bool close();
 
 private:
-
-	static ulong read_distance_once();
 	static File log_file;
-	static void button_handler();
-	static void led_handler();
+
 };
 
 #endif  // _OPENGARAGE_H_

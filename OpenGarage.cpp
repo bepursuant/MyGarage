@@ -27,14 +27,10 @@
 #include "Log.h"
 #include "OpenGarage.h"
 
-File  OpenGarage::log_file;
+File OpenGarage::log_file;
 uint OpenGarage::current_log_id;
 
 static const char* log_fname = LOG_FNAME;
-
-void OpenGarage::begin() {
-
-}
 
 void OpenGarage::log_reset() {
 	oLog.info("Resetting log file...");
@@ -130,14 +126,4 @@ bool OpenGarage::read_log_end() {
 	if (!log_file) return false;
 	log_file.close();
 	return true;
-}
-
-
-
-bool OpenGarage::open() {
-	click_relay();
-}
-
-bool OpenGarage::close() {
-	click_relay();
 }

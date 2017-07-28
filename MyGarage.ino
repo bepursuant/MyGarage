@@ -5,32 +5,72 @@
 #include "Mail.h"		// Pursuant library for sending email messages
 #include "OpenGarage.h"	// DEPRECATE for controlling the garage door
 #include "Button.h"		// library for reacting to button presses
+#include "Relay.h"		// Pursuant library for relays
+#include "SerializeEeprom.h" // External library for saving to eeprom
+#include "Led.h"		// Pursuant library for Led strip
 
+
+// config object maintains configuration defaults and overrides in eeprom
 Config config;
+
+// for writing log messages to serial or logfiles
 Log oLog;
+
+// for sending email messages
 Mail mail;
+
+// deprecate - handles some logfile functions
 OpenGarage og;
 
-// object that will handle the actual http server functions
+// http webservices
 ESP8266WebServer *server = NULL;
 ESP8266HTTPUpdateServer *updater = NULL;
 
-// physical buttons
-Button btnConfig = Button(PIN_CONFIG, BUTTON_PULLUP_INTERNAL);
-Button btnClosed = Button(PIN_CLOSED, BUTTON_PULLUP_INTERNAL);
+// gpio inputs and outputs
+CRGB leds[NUM_LEDS];
 
-// global door status
-static byte door_status;
-static ulong last_status_change_utc;
+Button button1(PIN_BTN1);
+Button button2(PIN_BTN2);
+
+Button sensor1(PIN_SENSOR1);
+Button sensor2(PIN_SENSOR2);
+
+Relay relay1(PIN_RELAY1);
+Relay relay2(PIN_RELAY2);
+
 
 // vars to store a utc timestamp for timekeeping
 // (or millis() for operations that take time)
-static ulong last_sync_utc;				// last synced UTC time
-static ulong last_sync_millis;			// last millis() we synced time with ntp
+ulong last_sync_utc = 0;			// last synced UTC time
+ulong last_sync_millis = 0;			// last millis() we synced time with ntp
+ulong last_status_change_utc;		// last time the door status changed
+ulong portal_enabled_utc = 0;		// when the portal was enabled
 
-// define a few helper functions below for interacting with the 
-// server object, like sending html or json response headers
-// and content to the connected client, or rendering text
+// event handlers for WiFi STA
+WiFiEventHandler e1, e2, e3;
+
+// Helper Methods
+String get_encryption_type(int type) {
+	// read the encryption type and print out the name:
+	switch (type) {
+	case ENC_TYPE_WEP:
+		return String("WEP");
+		break;
+	case ENC_TYPE_TKIP:
+		return String("WPA");
+		break;
+	case ENC_TYPE_CCMP:
+		return String("WPA2");
+		break;
+	case ENC_TYPE_NONE:
+		return String("None");
+		break;
+	case ENC_TYPE_AUTO:
+		return String("Auto");
+		break;
+	}
+}
+
 void server_send_html(String html) {
 	server->send(200, "text/html", html);
 }
@@ -39,13 +79,6 @@ void server_send_json(String json) {
 	server->send(200, "text/json", json);
 }
 
-void server_send_json(JsonObject& root) {
-	String retJson;
-	root.printTo(retJson);
-	server->send(200, "text/json", retJson);
-}
-
-// DEPRECATE send a validation result, including the result code [and item name]
 void server_send_result(byte code, const char* item = NULL) {
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
@@ -60,70 +93,21 @@ void server_send_result(byte code, const char* item = NULL) {
 	server_send_json(retJson);
 }
 
-// convert a decimal byte value into ASCII (hex)
-char dec2hexchar(byte dec) {
-	if (dec<10)
-		return '0' + dec;
-	else
-		return 'A' + (dec - 10);
+String get_sta_ip() {
+	return WiFi.localIP().toString();
 }
 
-// check if a string is actually a number in disguise
-bool is_int(String str)
-{
-	if (!(str.charAt(0) == '+' || str.charAt(0) == '-' || isDigit(str.charAt(0)))) {
-		return false;
-	}
-
-	for (byte i = 1; i<str.length(); i++)
-	{
-		if (!isDigit(str.charAt(i))) {
-			return false;
-		}
-	}
-
-	return true;
-}
-
-// grab the mac address as bytes and return it as a string
-String get_mac() {
-	static String hex = "";
-	if (!hex.length()) {
-		byte mac[6];
-		WiFi.macAddress(mac);
-
-		for (byte i = 0; i<6; i++) {
-			hex += dec2hexchar((mac[i] >> 4) & 0x0F);
-			hex += dec2hexchar(mac[i] & 0x0F);
-			if (i != 5) hex += ":";
-		}
-	}
-	return hex;
-}
-
-
-// get the ip as an array of bytes and return as a dotted decimal string
 String get_ap_ip() {
-	static String ip = "";
-	IPAddress _ip = WiFi.localIP();
-	ip += _ip[0];
-	ip += ".";
-	ip += _ip[1];
-	ip += ".";
-	ip += _ip[2];
-	ip += ".";
-	ip += _ip[3];
-	return ip;
+	return WiFi.softAPIP().toString();
 }
 
-// authenticate the request using the cookie token that would have been sent
-// after the client calls /auth with a correct devicekey
 bool is_authenticated() {
 
 	if (server->hasHeader("Cookie")) {
 		String cookie = server->header("Cookie");
+		String token = String("OG_TOKEN=") + String(config.devicekey);
 		oLog.debug("Authenticating using Cookie. Cookie=%s...", cookie.c_str());
-		if (cookie.indexOf("OG_TOKEN=" + config.devicekey) != -1) {
+		if (cookie.indexOf(token) != -1) {
 			oLog.debug("ok!");
 			return true;
 		}
@@ -135,6 +119,11 @@ bool is_authenticated() {
 	return false;
 }
 
+bool hasRealArg(String name) {
+	return (server->hasArg(name)) && (server->arg(name).length() > 0);
+}
+
+
 // Return the current UTC time based on the millis() since the last sync
 // The exact current time is derived as a unix timestamp by taking...
 // [the last timestamp we synced] + [the time since the last sync]
@@ -142,40 +131,62 @@ ulong get_utc_time() {
 	return last_sync_utc + (millis() - last_sync_millis) / 1000;
 }
 
+
+// Reset the device to factory condition by erasing the logs, configuration,
+// and connection information and finally rebooting.
+void factory_reset() {
+	oLog.info("Resetting to factory defaults...");
+
+	// clear the log files
+	oLog.info("formatting file system...");
+	SPIFFS.format();
+
+	//oLog.info("erasing eeprom...");
+	// no eeprom clear method! configuration is invalidated by different version checksums instead
+
+	oLog.info("ok!\r\n");
+
+	// restart the ESP to establish a fresh state
+	oLog.info("ESP was reset and will now be rebooted...\r\n");
+	ESP.reset();
+}
+
+
+// WS Methods
 void on_get_index()
 {
-	oLog.verbose("GET /index ...");
+	oLog.verbose("GET / ...");
 	server_send_html(assets_portal);
 	oLog.verbose("ok!\r\n");
 }
 
-void on_get_portal() {
-	oLog.verbose("GET /portal ...");
-	server_send_html(assets_portal);
-	oLog.verbose("ok!\r\n");
-}
+void on_get_status() {
+	oLog.verbose("GET /status ...");
 
-void on_get_controller() {
-	oLog.verbose("GET /controller ...");
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
+	JsonObject& status = root.createNestedObject("status");
 
-	root["door_status"] = door_status;
-	root["last_status_change"] = last_status_change_utc;
-	root["firmware_version"] = FIRMWARE_VERSION;
-	root["name"] = config.name;
-	root["mac"] = get_mac();
-	root["cid"] = ESP.getChipId();
+	status["door_status"] = sensor1.isPressed();
+	status["last_status_change"] = last_status_change_utc;
+	status["wifi_status"] = (int)WiFi.status();
+	status["wifi_rssi"] = (int)WiFi.RSSI();
+	status["firmware_version"] = FIRMWARE_VERSION;
+	status["name"] = config.name;
+	status["heap"] = ESP.getFreeHeap();
+	status["chip_id"] = ESP.getChipId();
+	status["utc_time"] = get_utc_time();
 
 	String retJson;
 	root.printTo(retJson);
-
 	server_send_json(retJson);
+
 	oLog.verbose("ok!\r\n");
 }
 
 void on_get_logs() {
 	oLog.verbose("GET /logs ...");
+
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 
@@ -188,7 +199,7 @@ void on_get_logs() {
 	uint curr;
 	if (!og.read_log_start()) return;
 
-	for (uint i = 0; i<og.current_log_id; i++) {
+	for (uint i = 0; i < og.current_log_id; i++) {
 		if (!og.read_log(l, i)) continue;
 		//if(!l.tstamp) continue;
 
@@ -202,16 +213,16 @@ void on_get_logs() {
 
 	String retJson;
 	root.printTo(retJson);
-
 	server_send_json(retJson);
+
 	oLog.verbose("ok!\r\n");
 }
 
 void on_get_config() {
 	oLog.verbose("GET /config ...");
+
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
-
 	JsonObject& conf = root.createNestedObject("config");
 
 	conf["name"] = config.name;
@@ -221,122 +232,70 @@ void on_get_config() {
 	conf["smtp_host"] = config.smtp_host;
 	conf["smtp_port"] = config.smtp_port;
 	conf["smtp_user"] = config.smtp_user;
-	// smtp_pass is read only
+	// smtp_pass is protected
 	conf["smtp_from"] = config.smtp_from;
 	conf["smtp_to"] = config.smtp_to;
 	conf["ap_ssid"] = config.ap_ssid;
-	// ap_pass is readonly
+	// ap_pass is protected
 
 	String retJson;
 	root.printTo(retJson);
-
 	server_send_json(retJson);
+
 	oLog.verbose("ok!\r\n");
 }
 
-void on_post_config() {
-	oLog.verbose("POST /config ...");
+void on_get_networks() {
+	oLog.verbose("GET /networks ...");
 
-	if (server->hasArg("name")) {
-		config.name = server->arg("name");
-	}
+	int secure = 0;
+	int unsecure = 0;
+	int numNetworks = WiFi.scanNetworks();
 
-	if (server->hasArg("devicekey")) {
-		config.devicekey = server->arg("devicekey");
-	}
-
-	if (server->hasArg("http_port")) {
-		config.http_port = server->arg("http_port").toInt();
-	}
-
-	if (server->hasArg("smtp_notify_boot")) {
-		config.smtp_notify_boot = true;
-	}
-	else {
-		config.smtp_notify_boot = false;
-	}
-
-	if (server->hasArg("smtp_notify_status")) {
-		config.smtp_notify_status = true;
-	}
-	else {
-		config.smtp_notify_status = false;
-	}
-
-	if (server->hasArg("smtp_host")) {
-		config.smtp_host = server->arg("smtp_host");
-	}
-
-	if (server->hasArg("smtp_port")) {
-		config.smtp_port = server->arg("smtp_port").toInt();
-	}
-
-	if (server->hasArg("smtp_user")) {
-		config.smtp_user = server->arg("smtp_user");
-	}
-
-	if (server->hasArg("smtp_pass")) {
-		config.smtp_pass = server->arg("smtp_pass");
-	}
-
-	if (server->hasArg("smtp_from")) {
-		config.smtp_from = server->arg("smtp_from");
-	}
-
-	if (server->hasArg("smtp_to")) {
-		config.smtp_to = server->arg("smtp_to");
-	}
-
-	if (server->hasArg("ap_ssid")) {
-		config.ap_ssid = server->arg("ap_ssid");
-	}
-
-	if (server->hasArg("ap_pass")) {
-		config.ap_pass = server->arg("ap_pass");
-	}
-
-	// write to filesystem
-	write(CONFIG_FNAME, config);
-
-	server_send_result(HTML_SUCCESS);
-	oLog.verbose("ok!\r\n");
-}
-
-void on_get_status() {
-	oLog.verbose("GET /status ...");
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
+	JsonArray& networks = root.createNestedArray("networks");
 
-	JsonObject& status = root.createNestedObject("status");
+	if (numNetworks > 0) {
 
-	status["door_status"] = door_status;
-	status["last_status_change"] = last_status_change_utc;
-	status["firmware_version"] = FIRMWARE_VERSION;
-	status["name"] = config.name;
-	status["mac"] = get_mac();
-	status["heap"] = ESP.getFreeHeap();
-	status["chip_id"] = ESP.getChipId();
-	status["utc_time"] = get_utc_time();
+		for (int i = 0; i < numNetworks; i++) {
+
+			String net_ssid;
+			int32_t net_rssi;
+			uint8_t net_security;
+			uint8_t* net_bssid;
+			int32_t net_channel;
+			bool net_hidden;
+
+			WiFi.getNetworkInfo(i, net_ssid, net_security, net_rssi, net_bssid, net_channel, net_hidden);
+
+			JsonObject& nw = networks.createNestedObject();
+			nw["ssid"] = net_ssid;
+			nw["rssi"] = net_rssi;
+			nw["security"] = get_encryption_type(net_security);
+			nw["bssid"] = net_bssid;
+			nw["channel"] = net_channel;
+			nw["hidden"] = net_hidden;
+
+			// add a tally
+			(net_security == ENC_TYPE_NONE) ? unsecure++ : secure++;
+		}
+	}
+
+	root["count_secure"] = secure;
+	root["count_unsecure"] = unsecure;
 
 	String retJson;
 	root.printTo(retJson);
-
 	server_send_json(retJson);
 
 	oLog.verbose("ok!\r\n");
 }
 
-void on_post_controller() {
-	oLog.verbose("POST /controller");
-	if (server->hasArg("click")) {
-		og.click_relay();
-		server_send_result(HTML_SUCCESS);
-	}
-	oLog.verbose("ok!\r\n");
-}
 
 void on_post_auth() {
 	oLog.verbose("POST /auth ...");
+
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 
@@ -352,30 +311,127 @@ void on_post_auth() {
 
 	String retJson;
 	root.printTo(retJson);
-
 	server_send_json(retJson);
+
 	oLog.verbose("ok!\r\n");
 }
 
+void on_post_config() {
+	oLog.verbose("POST /config ...");
 
-void on_post_update_complete() {
-	oLog.verbose("Post Update Complete...");
+	int i;
+	String s;
+	bool needsRestart = false;
 
-	// finish update and check error
-	if (!Update.end(true) || Update.hasError()) {
-		server_send_result(HTML_UPLOAD_FAILED);
-		oLog.verbose("error, update cancelled... nok!\r\n");
-		return;
+	if (hasRealArg("name")) {
+		oLog.debug("Config value updated. Name=name, OldValue=%s, ", config.name);
+		strcpy(config.name, server->arg("name").c_str());
+		oLog.debug("NewValue=%s.\r\n", config.name);
+		needsRestart = true;
 	}
 
-	server_send_result(HTML_SUCCESS);
+	if (hasRealArg("devicekey")) {
+		oLog.debug("Config value updated. Name=devicekey, OldValue=***, NewValue=***.\r\n");
+		strcpy(config.devicekey, server->arg("devicekey").c_str());
+		needsRestart = true;
+	}
+
+	if (hasRealArg("http_port") && (i = server->arg("http_port").toInt())) {
+		oLog.debug("Config value updated. Name=http_port, OldValue=%i, NewValue=%i.\r\n", config.http_port, i);
+		config.http_port = i;
+		needsRestart = true;
+	}
+
+	if (server->hasArg("smtp_notify_boot")) {
+		oLog.debug("Config value updated. Name=smtp_notify_boot, OldValue=false, NewValue=true.\r\n");
+		config.smtp_notify_boot = true;
+	}
+	else {
+		oLog.debug("Config value updated. Name=smtp_notify_boot, OldValue=true, NewValue=false.\r\n");
+		config.smtp_notify_boot = false;
+	}
+
+	if (server->hasArg("smtp_notify_status")) {
+		oLog.debug("Config value updated. Name=smtp_notify_status, OldValue=false, NewValue=true.\r\n");
+		config.smtp_notify_status = true;
+	}
+	else {
+		oLog.debug("Config value updated. Name=smtp_notify_status, OldValue=true, NewValue=false.\r\n");
+		config.smtp_notify_status = false;
+	}
+
+	if (hasRealArg("smtp_host")) {
+		oLog.debug("Config value updated. Name=smtp_host, OldValue=%s, ", config.smtp_host);
+		strcpy(config.smtp_host, server->arg("smtp_host").c_str());
+		oLog.debug("NewValue=%s.\r\n", config.smtp_host);
+		needsRestart = true;
+	}
+
+	if (hasRealArg("smtp_port") && (i = server->arg("smtp_port").toInt())) {
+		oLog.debug("Config value updated. Name=smtp_port, OldValue=%i, NewValue=%i.\r\n", config.smtp_port, i);
+		config.smtp_port = i;
+		needsRestart = true;
+	}
+
+	if (hasRealArg("smtp_user")) {
+		oLog.debug("Config value updated. Name=smtp_user, OldValue=%s,", config.smtp_user);
+		strcpy(config.smtp_user, server->arg("smtp_user").c_str());
+		oLog.debug("NewValue=%s.\r\n", config.smtp_user);
+		needsRestart = true;
+	}
+
+	if (hasRealArg("smtp_pass")) {
+		oLog.debug("Config value updated. Name=smtp_pass, OldValue=%s, ", config.smtp_pass);
+		strcpy(config.smtp_pass, server->arg("smtp_pass").c_str());
+		oLog.debug("NewValue=%s.\r\n", config.smtp_pass);
+		needsRestart = true;
+	}
+
+	if (hasRealArg("smtp_from")) {
+		oLog.debug("Config value updated. Name=smtp_from, OldValue=%s, ", config.smtp_from);
+		strcpy(config.smtp_from, server->arg("smtp_from").c_str());
+		oLog.debug("NewValue=%s.\r\n", config.smtp_from);
+		needsRestart = true;
+	}
+
+	if (hasRealArg("smtp_to")) {
+		oLog.debug("Config value updated. Name=smtp_to, OldValue=%s, ", config.smtp_to);
+		strcpy(config.smtp_to, server->arg("smtp_to").c_str());
+		oLog.debug("NewValue=%s.\r\n", config.smtp_to);
+		needsRestart = true;
+	}
+
+	if (hasRealArg("ap_ssid")) {
+		oLog.debug("Config value updated. Name=ap_ssid, OldValue=%s, ", config.ap_ssid);
+		strcpy(config.ap_ssid, server->arg("ap_ssid").c_str());
+		oLog.debug("NewValue=%s.\r\n", config.ap_ssid);
+		needsRestart = true;
+	}
+
+	if (hasRealArg("ap_pass")) {
+		oLog.debug("Config value updated. Name=ap_pass, OldValue=%s, ", config.ap_pass);
+		strcpy(config.ap_pass, server->arg("ap_pass").c_str());
+		oLog.debug("NewValue=%s.\r\n", config.ap_pass);
+		needsRestart = true;
+	}
+
+	// write to filesystem
+	SaveConfig(config);
+
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject& root = jsonBuffer.createObject();
+	JsonObject& response = root.createNestedObject("response");
+
+	response["response_code"] = 0;
+	response["needsRestart"] = needsRestart;
+
+	String retJson;
+	root.printTo(retJson);
+	server_send_json(retJson);
+
 	oLog.verbose("ok!\r\n");
 }
 
-/*
- * Handles the upload of a file from the configuration form, specifically
- * used to do firmware updates through the web interface.
- */
 void on_post_update_start() {
 	HTTPUpload& upload = server->upload();
 	oLog.info("Receiving file upload. Filename=%s...", upload.filename.c_str());
@@ -404,12 +460,227 @@ void on_post_update_start() {
 	yield(); //to keep wifi chip happy
 }
 
+void on_post_update_complete() {
+	oLog.verbose("Post Update Complete...");
+
+	// finish update and check error
+	if (!Update.end(true) || Update.hasError()) {
+		server_send_result(HTML_UPLOAD_FAILED);
+		oLog.verbose("error, update cancelled... nok!\r\n");
+		return;
+	}
+
+	server_send_result(HTML_SUCCESS);
+	oLog.verbose("ok!\r\n");
+}
+
+
+void on_get_controller() {
+	oLog.verbose("GET /controller ...");
+
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject& root = jsonBuffer.createObject();
+
+	root["door_status"] = sensor1.isPressed();
+	root["last_status_change"] = last_status_change_utc;
+	root["firmware_version"] = FIRMWARE_VERSION;
+	root["name"] = config.name;
+	root["cid"] = ESP.getChipId();
+
+	String retJson;
+	root.printTo(retJson);
+	server_send_json(retJson);
+
+	oLog.verbose("ok!\r\n");
+}
+
+void on_post_controller() {
+	oLog.verbose("POST /controller...");
+	if (server->hasArg("click")) {
+		relay1.click();
+		server_send_result(HTML_SUCCESS);
+	}
+	oLog.verbose("ok!\r\n");
+}
+
+// Program Events
+void on_ap_connected(WiFiEventStationModeConnected evt) {
+	oLog.info("WiFi Connected to AP. SSID=%s, Channel=%i\r\n", evt.ssid.c_str(), evt.channel);
+}
+
+void on_ap_got_ip(WiFiEventStationModeGotIP evt) {
+	oLog.info("WiFi Obtained IP via DHCP. IP=%s, Subnet=%s, Gateway=%s\r\n", evt.ip.toString().c_str(), evt.mask.toString().c_str(), evt.gw.toString().c_str());
+}
+
+void on_ap_disconnect(WiFiEventStationModeDisconnected evt) {
+	oLog.info("WiFi Disconnected from AP. SSID=%s, Reason=%d\r\n", evt.ssid.c_str(), evt.reason);
+}
+
+void on_door_status_change(int sensor, int status) {
+	oLog.verbose("Handling sensor status change. Sensor=%i, Status=%i...", sensor, status);
+
+	// update timestamp of status change
+	last_status_change_utc = get_utc_time();
+
+	// write the event to the event log
+	LogStruct l;
+	l.tstamp = last_status_change_utc;
+	l.status = status;
+	l.value = sensor;
+	og.write_log(l);
+
+	// module : email alerts
+	if (config.smtp_notify_status) {
+		char* message;
+		sprintf(message, "%s Sensor #%i : %s at %i", config.name,sensor, (status == DOOR_STATUS_OPEN ? "OPENED" : "CLOSED"), last_status_change_utc);
+		mail.send(config.smtp_from, config.smtp_to, message, message);
+	}
+
+	oLog.info("ok!\r\n");
+}
+
+
+// Initializers
+void init_log() {
+	oLog.init(LOGLEVEL, 115200);
+}
+
+void init_config() {
+	oLog.verbose("INIT Config...");
+	if (!LoadConfig(config))
+		oLog.error("Failed to Initialize Config...nok!\r\n");
+	else
+		oLog.verbose("ok!\r\n");
+}
+
+void init_fs() {
+	oLog.verbose("INIT FileSystem...");
+	if (!SPIFFS.begin())
+		oLog.error("Failed to Initialize FileSystem...nok!\r\n");
+	else
+		oLog.info("ok!\r\n");
+}
+
+void init_wifi() {
+	oLog.verbose("INIT WiFi. (SSID=%s, Pass=%s)...", config.ap_ssid, config.ap_pass);
+	if (String(config.ap_ssid) != String("")) {
+		WiFi.begin(config.ap_ssid, config.ap_pass);
+		e1 = WiFi.onStationModeGotIP(on_ap_got_ip);
+		e2 = WiFi.onStationModeDisconnected(on_ap_disconnect);
+		e3 = WiFi.onStationModeConnected(on_ap_connected);
+		delay(100);
+		WiFi.hostname(config.name);
+		oLog.verbose("ok!\r\n");
+	} else {
+		WiFi.disconnect();
+		oLog.error("Failed to Initialize Wifi. No SSID Configured...nok!\r\n");
+	}
+}
+
+void init_ntp() {
+	oLog.verbose("INIT NTP (Server1=%s, Server2=%s)...", "pool.ntp.org", "time.nist.org");
+	configTime(0, 0, "pool.ntp.org", "time.nist.org", NULL);
+	oLog.verbose("ok!\r\n");
+}
+
+void init_mdns() {
+	oLog.verbose("INIT MDNS (Hostname=%s)...", config.name);
+	if (MDNS.begin(config.name)) {
+		oLog.verbose("ok...listing services...");
+		MDNS.addService("http", "tcp", config.http_port);
+		oLog.verbose("ok!\r\n");
+	} else {
+		oLog.error("Failed to initialize MDNS... nok!\r\n");
+	}
+}
+
+void init_ws() {
+	oLog.verbose("INIT HTTP and API Services (Port=%i)...", config.http_port);
+	if (server) {
+		oLog.debug("Server object already existed during setup routine and has been erased.\r\n");
+		delete server;
+		server = NULL;
+	}
+
+	server = new ESP8266WebServer(config.http_port);
+	updater = new ESP8266HTTPUpdateServer();
+
+	server->on("/", on_get_index);
+	server->on("/auth", HTTP_POST, on_post_auth);
+	server->on("/json/logs", HTTP_GET, on_get_logs);
+	server->on("/json/status", HTTP_GET, on_get_status);
+	server->on("/json/controller", on_post_controller);
+	server->on("/json/controller", HTTP_GET, on_get_controller);
+	server->on("/json/config", HTTP_GET, on_get_config);
+	server->on("/json/config", HTTP_POST, on_post_config);
+	server->on("/json/networks", HTTP_GET, on_get_networks);
+	server->on("/fwlink", on_get_index);
+	server->on("/generate_204", on_get_index);
+	updater->setup(server);
+	server->begin();
+
+	oLog.verbose("ok!\r\n");
+}
+
+void init_smtp() {
+	oLog.verbose("INIT SMTP Mailer (Host=%s:%i, User=%s)...", config.smtp_host, config.smtp_port, config.smtp_user);
+	mail.init(config.smtp_host, config.smtp_port, config.smtp_user, config.smtp_pass);
+	oLog.verbose("ok!\r\n");
+}
+
+void init_leds() {
+	oLog.verbose("INIT LEDS...");
+
+	FastLED.addLeds<NEOPIXEL, PIN_LEDS>(leds, NUM_LEDS);
+	FastLED.setBrightness(24);
+
+	leds[LED1] = CRGB::Yellow;
+	leds[LED2] = CRGB::Yellow;
+
+	FastLED.show();
+
+	oLog.verbose("ok!\r\n");
+}
+
+void init_ui() {
+	oLog.verbose("INIT UI...");
+
+	button1.clickHandler(on_btn1_click);
+	button1.holdHandler(on_btn1_hold, BTN1_HOLDTIME);
+
+	button2.clickHandler(on_btn2_click);
+	button2.holdHandler(on_btn2_hold, BTN2_HOLDTIME);
+
+	sensor1.pressHandler(on_sensor1_press);
+	sensor1.releaseHandler(on_sensor1_release);
+
+	sensor2.pressHandler(on_sensor2_press);
+	sensor2.releaseHandler(on_sensor2_release);
+
+	oLog.verbose("ok!\r\n");
+}
+
+void init_portal(int timeout = WIFI_PORTAL_TIMEOUT) {
+	oLog.info("Opening WiFi Hotspot. Timeout=%is...", timeout);
+	IPAddress portalIp(192, 168, 1, 1);
+	IPAddress portalSubnet(255, 255, 255, 0);
+	if (WiFi.softAPConfig(portalIp, portalIp, portalSubnet) && WiFi.softAP(config.name, config.devicekey)) {
+		portal_enabled_utc = get_utc_time();
+		oLog.info("ok! SSID=%s, Pass=%s, IP=%s, Port=%i\r\n", config.name, config.devicekey, portalIp.toString().c_str(), config.http_port);
+	}
+	else {
+		oLog.error("Could not open configuration portal as soft ap...nok!\r\n");
+	}
+}
+
+// Loop Tick Handlers
+
 // time keeping routine - the ESP module provides a millis() function 
 // for general relative timekeeping, but we also want to know the
 // basic UTC time... so lets maintain the UTC time in a var 
-void time_keeping() {
+void tick_ntp() {
 	// if we haven't synced yet, or if we've gone too long without syncing,
-	// lets synchronise time with the NTP server that we already set up.
+	// synchronise time with the NTP server that we already set up
 	if (!last_sync_utc || millis() > last_sync_millis + (TIME_SYNC_TIMEOUT * 1000)) {
 		ulong gt = time(nullptr);
 
@@ -419,243 +690,122 @@ void time_keeping() {
 			int drift = gt - get_utc_time();
 			oLog.info("Synchronized time using NTP. Current Unix Time=%i, Drift=%is.\r\n", gt, drift);
 		}
+		else {
+			//oLog.error("Failed to sync time using NTP.");
+		}
 
 	}
 }
 
-// periodically check the status of the door based on the sensor type
-void onDoorSensorStatusChange() {
-	oLog.verbose("Handling door status change. NewStatus=%i...", door_status);
-		
-	// update timestamp of status change
-	last_status_change_utc = get_utc_time();
+void tick_ws() {
+	server->handleClient();
+}
 
-	// write the event to the event log
-	LogStruct l;
-	l.tstamp = last_status_change_utc;
-	l.status = door_status;
-	l.value = door_status;
-	og.write_log(l);
+void tick_leds() {
+	FastLED.show();
+}
 
-	// module : email alerts
-	if (config.smtp_notify_status) {
-		String message = config.name + " " + (door_status == DOOR_STATUS_OPEN ? "OPENED" : "CLOSED") + " at " + String(last_status_change_utc);
-		mail.send(config.smtp_from, config.smtp_to, "Door status changed!", message);
+void tick_ui() {
+	button1.isPressed();
+	button2.isPressed();
+	sensor1.isPressed();
+	sensor2.isPressed();
+	//relay1.tick();
+	//relay2.tick();
+}
+
+void tick_portal() {
+	if (portal_enabled_utc > 0 && get_utc_time() > portal_enabled_utc + WIFI_PORTAL_TIMEOUT) {
+		oLog.info("Closing WiFi HotSpot...");
+		WiFi.softAPdisconnect();
+		portal_enabled_utc = 0;
+		oLog.info("ok!\r\n");
 	}
+}
+
+
+// GPIOs
+void on_btn1_click(Button& b) {
+	oLog.info("Button 1 Click...");
+
+	leds[LED1] = CRGB::OrangeRed;
 
 	oLog.info("ok!\r\n");
 }
 
-/**
-* Called when the physical button is pressed. When pressed we
-* will reset the entire device to factory settings and reboot
-**/
-void configHoldHandler(Button& b) {
-	oLog.error("Reset button held, resetting to factory defaults...");
+void on_btn1_hold(Button& b) {
+	oLog.info("Button 1 Hold. \r\n");
+}
 
-	// clear the wifi configuration, delegated to the wifimanager. We must initialize a
-	// new wifimanager object here as the original was already garbage collected
-	oLog.error("reset wifi config...");
-	//WiFiManager wifiManager;
-	//wifiManager.resetSettings();
+void on_btn2_click(Button& b) {
+	oLog.info("Button 2 Click...");
 
-	// clear the FS which includes the config and oLog files
-	oLog.error("formatting file system...");
-	//SPIFFS.format();
+	leds[LED2] = CRGB::FireBrick;
 
-	oLog.error("ok!\r\n");
+	oLog.info("ok!\r\n");
+}
 
-	// restart the ESP to establish a fresh state
-	oLog.info("ESP was reset and will now be rebooted...\r\n");
-	//ESP.reset();
+void on_btn2_hold(Button& b) {
+
+	// button2 was held!
+	oLog.info("Button 2 Hold. \r\n");
+
+	if (button1.heldFor(BTN1_HOLDTIME)) {
+		// both buttons were held
+		oLog.info("Buttons 1 and 2 Hold. \r\n");
+		init_portal();
+	}
+
 }
 
 
-void configPressHandler(Button& b) {
-	oLog.error("Config button pressed, enabling configuration portal...");
+void on_sensor1_press(Button &btn) {
+	leds[LED1] = CRGB::Green;
+	on_door_status_change(1, DOOR_STATUS_CLOSED);
+}
 
-	if (WiFi.softAP(config.name.c_str(), config.devicekey.c_str())) {
-		oLog.info("Configuration portal enabled by button press...ok!\r\n");
-	}
-	else {
-		oLog.error("Could not open configuration portal as soft ap...nok!\r\n");
-	}
+void on_sensor1_release(Button &btn) {
+	leds[LED1] = CRGB::Red;
+	on_door_status_change(1, DOOR_STATUS_OPEN);
+}
+
+void on_sensor2_press(Button &btn) {
+	leds[LED2] = CRGB::Green;
+	on_door_status_change(2, DOOR_STATUS_CLOSED);
+}
+
+void on_sensor2_release(Button &btn) {
+	leds[LED2] = CRGB::Red;
+	on_door_status_change(2, DOOR_STATUS_OPEN);
 }
 
 
 
-
+// Setup and Loop Methods
 void setup()
 {
-	// serial and file logging and begin output
-	oLog.init(LOGLEVEL, 115200);
-	oLog.info("Initializing MyGarage...\r\n");
+	init_log();
+	init_config();
+	init_fs();
 
-	// file system for config and logs
-	oLog.info("Mounting SPIFFS...");
-	if (!SPIFFS.begin())
-		oLog.info("failed to mount file system...nok!\r\n");
-	else 
-		oLog.info("ok!\r\n");
+	init_wifi();
+	init_ntp();
+	init_mdns();
 
-	// user configuration from fs
-	oLog.verbose("Loading configuration...");
-	read(CONFIG_FNAME, config);
-	oLog.verbose("ok!\r\n");
 
-	// relay
-	oLog.verbose("Configuring relay...");
-	pinMode(PIN_RELAY, OUTPUT);
-	digitalWrite(PIN_RELAY, LOW);
-	oLog.verbose("ok!\r\n");
-
-	// internal factory reset button if held for 1 second
-	oLog.verbose("Configuring human interfaces...");
-
-	// config portal on press, reset on hold
-	btnConfig.pressHandler(configPressHandler);
-	btnConfig.holdHandler(configHoldHandler, BUTTON_CONFIG_HOLDTIME);
-
-	// for when the sensor opens and closes
-	btnClosed.pressHandler(closedPressHandler);
-	btnClosed.releaseHandler(closedReleaseHandler);
-
-	oLog.verbose("ok!\r\n");
-
-	// local clock and time servers
-	oLog.verbose("Configuring NTP time servers. Server1=%s, Server2=%s...", "pool.ntp.org", "time.nist.org");
-	configTime(0, 0, "pool.ntp.org", "time.nist.org", NULL);
-	oLog.verbose("ok!\r\n");
-	
-	// DEPRECATE: OpenGarage object
-	og.begin();
-
-	// setup DHCP hostname, hopefully this works and will allow us to
-	// access the device by its device name on a windows network. have 
-	// to convert to a char array because our declaration is weird
-	oLog.verbose("Configuring WiFi. Hostname=%s...", config.name.c_str());
-	if (WiFi.hostname(config.name)) {
-		oLog.verbose("ok!\r\n");
-	}
-	else {
-		oLog.verbose("failed...nok!\r\n");
-	}
-
-	// initialize a WiFiManager to establish an existing WiFi connection
-	// or offer a configuration portal to the user to connect to a new
-	// network, will be garbage collected after connection
-	//WiFiManager wifiManager;
-
-	//set config save notify callback
-	//wifiManager.setSaveConfigCallback(saveConfigCallback);
-
-	//sets timeout until configuration portal gets turned off
-	//useful to make it all retry or go to sleep (seconds)
-	//wifiManager.setTimeout(WIFI_PORTAL_TIMEOUT);
-	//wifiManager.setConfigPortalTimeout(WIFI_PORTAL_TIMEOUT);
-
-	// fetches previously stored ssid and password and tries to connect
-	// if it cannot connect it starts an access point where the user
-	// can setup the WiFi AP then goes into blocking loop waiting
-	/*oLog.info("Auto Connecting to WiFi Network...\r\n");
-	if (!wifiManager.autoConnect(config.name.c_str(), NULL)) {
-		oLog.info("failed to connect to AP, restarting in 30 ...nok!\r\n");
-		delay(300000);
-		//reset and try again, or maybe put it to deep sleep
-		ESP.reset();
-		delay(500000);
-	}
-	oLog.info("ok!\r\n");*/
-
-	// register with mdns, wont need this for a while
-	oLog.info("Configuring MDNS. Hostname=%s...", config.name.c_str());
-	if (MDNS.begin(config.name.c_str())) {
-		MDNS.addService("http", "tcp", 80);
-		oLog.info("ok!\r\n");
-	}
-	else {
-		oLog.info("MDNS registration failed... nok!\r\n");
-	}
-
-	oLog.info("Configuring HTTP and API Services. Port=%i...", config.http_port);
-
-	// create a server to respond to client HTTP requests on the 
-	// designated port. this will be used for the JSON API as
-	// well as the single page JSON application portal
-	if (server) {
-		oLog.verbose("Server object already existed during setup routine and has been erased.\r\n");
-		delete server;
-		server = NULL;
-	}
-
-	server = new ESP8266WebServer(config.http_port);
-	updater = new ESP8266HTTPUpdateServer();
-
-	server->on("/", on_get_index);
-	server->on("/portal", on_get_portal);
-	server->on("/auth", HTTP_POST, on_post_auth);
-	server->on("/json/logs", HTTP_GET, on_get_logs);
-	server->on("/json/status", HTTP_GET, on_get_status);
-	server->on("/json/controller", on_post_controller);
-	server->on("/json/controller", HTTP_GET, on_get_controller);
-	server->on("/json/config", HTTP_GET, on_get_config);
-	server->on("/json/config", HTTP_POST, on_post_config);
-	updater->setup(server);
-	server->begin();
-
-	oLog.info("ok!\r\n");
-
-	// configure the SMTP mailer
-	oLog.info("Configuring mailer. Host=%s:%i, User=%s", config.smtp_host.c_str(), config.smtp_port, config.smtp_user.c_str());
-	mail.init(config.smtp_host, config.smtp_port, config.smtp_user, config.smtp_pass);
-	oLog.info("ok!\r\n");
-
-	// pull in last known door status so that we don't mistakenly send
-	// a notification that a door event has occurred if the power was 
-	// cycled to the device or if it was reset/restarted randomly
-	int log_id = og.current_log_id;
-	oLog.info("Reading most recent log item. LogID=%i ...", log_id);
-	LogStruct current_log;
-	og.read_log(current_log, log_id);
-	oLog.info("got tstamp=%i, status=%i, value=%i...", current_log.tstamp, current_log.status, current_log.value);
-	oLog.info("ok!\r\n");
-
-	oLog.info("MyGarage has finished booting and is going into monitor mode.");
+	init_ws();
+	init_smtp();
+	init_leds();
+	init_ui();
+	// init_portal() is saved for on-demand button press
 
 }
 
-void closedPressHandler(Button &btn)
-{
-	door_status = DOOR_STATUS_OPEN;
-	onDoorSensorStatusChange();
-}
-
-void closedReleaseHandler(Button &btn)
-{
-	door_status = DOOR_STATUS_CLOSED;
-	onDoorSensorStatusChange();
-}
-
-// The main processing loop for the application. While the
-// device is powered this function will loop infinitely
-// and allow us to handle processing and UI function
 void loop() {
-
-	// handle human interfaces
-	btnConfig.isPressed();
-	btnClosed.isPressed();
-
-	// allow the webserver to handle any client requests
-	server->handleClient();
-
-	handleWiFi();
-
-	// maintain the internal clock and periodically sync via NTP
-	time_keeping();
-
-}
-
-void handleWiFi()
-{
-
+	tick_ntp();
+	tick_ws();
+	//tick_smtp();
+	tick_leds();
+	tick_ui();
+	tick_portal();
 }

@@ -2,6 +2,9 @@
 #ifndef _DEFINES_H
 #define _DEFINES_H
 
+#define FASTLED_ESP8266_RAW_PIN_ORDER
+
+
 #include <Esp8266WiFi.h>
 #include <ESP8266mDNS.h>
 #include <ESP8266WebServer.h>
@@ -9,6 +12,7 @@
 #include <ArduinoJson.h>
 #include <WiFiManager.h>
 #include <WiFiUdp.h>
+#include <FastLED.h>
 #include <time.h>
 #include <FS.h>
 #include <vector>
@@ -17,20 +21,26 @@
 #define FIRMWARE_VERSION    202  // Firmware version: 100 means 1.0.0
 
 // gpio pins (avoid D3,4,and8)
-#define PIN_CONFIG D2
-#define PIN_RELAY  D5
-#define PIN_LED    D6
-#define PIN_CLOSED D7
+#define PIN_LEDS D4
+#define NUM_LEDS 2
+#define LED1 0
+#define LED2 1
 
-// Config file name
-#define CONFIG_FNAME    "/config.dat"
+#define PIN_BTN1 D1
+#define PIN_BTN2 D2
+
+#define PIN_SENSOR1 D5
+#define PIN_SENSOR2 D6
+
+#define PIN_RELAY1 D7
+#define PIN_RELAY2 D8
 
 // Log file name
 #define LOG_FNAME       "/log.dat"
 #define LOGLEVEL LOGLEVEL_VERBOSE
 
-#define MAX_LOG_RECORDS    100
-#define WIFI_PORTAL_TIMEOUT 120
+#define MAX_LOG_RECORDS     100
+#define WIFI_PORTAL_TIMEOUT 300
 
 // door status histogram
 // number of values (maximum is 8)
@@ -52,7 +62,8 @@
 #define HTML_REDIRECT_HOME     0xFF
 
 
-#define BUTTON_CONFIG_HOLDTIME  15000  // if button is pressed for 15 seconds, reset
+#define BTN1_HOLDTIME  9000  // if button is pressed for 15 seconds, reset
+#define BTN2_HOLDTIME  10000
 #define TIME_SYNC_TIMEOUT  3600
 
 typedef unsigned char byte;

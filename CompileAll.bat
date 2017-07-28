@@ -14,4 +14,4 @@ echo   ok!
 echo:
 
 echo done!
-pause
+rem pause

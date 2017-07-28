@@ -108,7 +108,8 @@ bool Button::isPressed(void)
 		else //the state changed to RELEASED
 		{
 			if (cb_onRelease) { cb_onRelease(*this); } //fire the onRelease event
-			if (cb_onClick) { cb_onClick(*this); }   //fire the onClick event AFTER the onRelease
+			if ((millis() - pressedStartTime > BUTTON_DEBOUNCE_MS) && cb_onClick) { cb_onClick(*this); }   //fire the onClick event AFTER the onRelease
+			
 			//reset states (for timing and for event triggering)
 			pressedStartTime = -1;
 		}

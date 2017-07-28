@@ -4,7 +4,7 @@ const char assets_portal[] PROGMEM = R"=====(﻿<!DOCTYPE html>
 <meta charset="utf-8" />
 <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-<title class="lbl_name">MyGarage</title>
+<title class="lbl_name">Node Portal</title>
 <script type="text/javascript">
 /* remey/minjs */$ = function (t, n, e) { var i = Node.prototype, r = NodeList.prototype, o = "forEach", u = "trigger", c = [][o], s = t.createElement("i"); return r[o] = c, n.on = i.on = function (t, n) { return this.addEventListener(t, n, !1), this }, r.on = function (t, n) { return this[o](function (e) { e.on(t, n) }), this }, n[u] = i[u] = function (n, e) { var i = t.createEvent("HTMLEvents"); return i.initEvent(n, !0, !0), i.data = e || {}, i.eventName = n, i.target = this, this.dispatchEvent(i), this }, r[u] = function (t) { return this[o](function (n) { n[u](t) }), this }, e = function (n) { var e = t.querySelectorAll(n || "☺"), i = e.length; return 1 == i ? e[0] : e }, e.on = i.on.bind(s), e[u] = i[u].bind(s), e }(document, this);
 </script>
@@ -17,23 +17,21 @@ const char assets_portal[] PROGMEM = R"=====(﻿<!DOCTYPE html>
 <nav class="nav">
 <div class="container">
 <a class="pagename active" href="/">
-<b class="lbl_name">MyGarage</b>
+<b class="lbl_name">Node Portal</b>
 </a>
 <a href="#auth">Authenticate</a>
 <a href="#status">Current Status</a>
 <a href="#config">Configuration</a>
+<a id="wifi-status">No Connection</a>
 </div>
 </nav>
 <!-- CONNECT TO DEVICE -->
 <div class="container" id="tab-auth">
 <h2>Authenticate</h2>
 <form id="form-auth" action="/auth" method="POST" class="form">
-<fieldset>
-<legend>Authenticate with Device Key</legend>
-<label for="devicekey">Device Key:</label>
+<label for="devicekey">Device Key</label>
 <input type="password" name="devicekey" id="devicekey" />
 <input type="submit" value="Authenticate" class="btn btn-b btn-sm" />
-</fieldset>
 </form>
 </div>
 <!-- STATUS PAGE -->
@@ -56,13 +54,13 @@ const char assets_portal[] PROGMEM = R"=====(﻿<!DOCTYPE html>
 <input type="password" size=24 maxlength=32 id="new_devicekey" name="new_devicekey" />
 <label for="confirm_devicekey">Confirm</label>
 <input type="password" size=24 maxlength=32 id="confirm_devicekey" name="confirm_devicekey" />
-<h3>WiFi Settings</h3>
-
-<label for="ap_ssid">Network Name</label>
-<input type="text" id="ap_ssid" name="ap_ssid" />
-
-<label for="ap_pass">Network Password</label>
-<input type="text" id="ap_pass" name="ap_pass" />
+<h3>WiFi Settings</h3>
+<label for="ap_ssid">Network Name (<a href="" id="refresh-networks">re-scan</a>)</label>
+<select id="ap_ssid" name="ap_ssid">
+<option value="">Select a Network...</option>
+</select>
+<label for="ap_pass">Network Password</label>
+<input type="text" id="ap_pass" name="ap_pass" />
             
 <h3>Notification Settings</h3>
 <label for="smtp_from">Send Emails From</label>
@@ -102,6 +100,16 @@ MyGarage is an <a href="https://github.com/bepursuant/MyGarage">Open Source Proj
 </footer>
 <!-- SPA SCRIPTS -->
 <script>
+var WIFI_STATES = {
+WL_NO_SHIELD: 255,   // for compatibility with WiFi Shield library
+WL_IDLE_STATUS: 0,
+WL_NO_SSID_AVAIL: 1,
+WL_SCAN_COMPLETED: 2,
+WL_CONNECTED: 3,
+WL_CONNECT_FAILED: 4,
+WL_CONNECTION_LOST: 5,
+WL_DISCONNECTED: 6
+};
 function onBodyLoad() {
 // show login dialog if no token cookie has been obtained
 if (!getCookie("OG_TOKEN")) {
@@ -110,14 +118,19 @@ alert('login first');
 }
 // load initial values
 refresh_status();
+refresh_networks();
 refresh_configuration();
 // handle a button-action click event
 $("#button-action").on("click", function (e) {
 onActionClick();
 });
+$("#refresh-networks").on("clock", function (e) {
+refresh_networks();
+});
 // intercept auth form submission
 $("#form-auth").on("submit", function (e) {
 e.preventDefault();
+         
 var form = $("#form-auth");
 // send xhr request
 getJSON(
@@ -130,12 +143,11 @@ $("#login-modal").modal("hide");
 alert("Please try again");
 $("#devicekey").select();
 }
+return false;
 },
 form.method,
 new FormData(form)
 );
-// prevent submitting again
-return false;
 });
 // intercept the config form sumission
 $("#form-config").on("submit", function (e) {
@@ -146,14 +158,14 @@ if (confirm("Submit changes?")) {
 getJSON(
 form.action,
 function (postConfig) {
-if (postConfig.result != 1) {
-if (postConfig.result == 2) {
-alert("Check device key and try again.");
+if (postConfig.response_code == 0) {
+if (postConfig.needsRestart == true) {
+alert("Configuration updated, device needs to be restarted.");
 } else {
-alert("Error code: " + postConfig.result + ", item: " + postConfig.item);
+alert("Configuration updated.");
 }
 } else {
-alert("config are successfully saved. Note that changes to some config may require a reboot");
+alert("Configuration update failed. ResponseCode=" + postConfig.response_code);
 }
 return false;
 },
@@ -161,8 +173,6 @@ form.method,
 new FormData(form)
 );
 }
-// prevent submitting again
-return false;
 });
 }
 /**
@@ -184,6 +194,17 @@ function refresh_status() {
 getJSON("/json/status", function (jsonStatus) {
 var status = jsonStatus.status;
 $(".lbl_status").innerHTML = (status.door_status == 1 ? "OPEN" : "CLOSED");
+// indicate the wifi connection status
+switch (status.wifi_status) {
+case WIFI_STATES.WL_CONNECTED:
+$("#wifi-status").innerHTML = "Connected to Access Point";
+break;
+case WIFI_STATES.WL_DISCONNECTED:
+$("#wifi-status").innerHTML = "Not Connected!";
+break;
+
+}
+// status.wifi_rssi
 $("#button-action").innerHTML = (status.door_status == 1 ? "Close Door" : "Open Door");
 // convert timestamp into a Date object, then convert to human readable string
 update_time = new Date(1000 * status.last_status_change);
@@ -216,13 +237,24 @@ $(".lbl_name").innerHTML = (config.name);
 // update form fields manually - there may be a better way
 $("#name").value = config.name;
 $("#http_port").value = config.http_port;
-$("#smtp_notify_boot").checked = config.smtp_notify_boot;
-$("#smtp_notify_status").checked = config.smtp_notify_status;
+$("#smtp_notify_boot").checked = config.smtp_notify_boot ? "CHECKED" : "";
+$("#smtp_notify_status").checked = config.smtp_notify_status ? "CHECKED" : "";
 $("#smtp_host").value = config.smtp_host;
 $("#smtp_port").value = config.smtp_port;
 $("#smtp_user").value = config.smtp_user;
 $("#smtp_from").value = config.smtp_from;
 $("#smtp_to").value = config.smtp_to;
+$("#ap_ssid").value = config.ap_ssid;
+});
+}
+function refresh_networks() {
+getJSON("/json/networks", function (jsonNetworks) {
+var networks = jsonNetworks.networks;
+var r = "";
+for (var i = 0; i < networks.length; i++) {
+r += "<option value=\"" + networks[i]["ssid"] +"\">" + networks[i]["ssid"] + "</option>";
+}
+$("#ap_ssid").innerHTML = r;
 });
 }
 // allow for a cookie value to be set easily
